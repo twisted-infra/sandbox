@@ -1,0 +1,9 @@
+# Home dir for your Mailman installation -- aka Mailman's prefix
+# directory.
+MAILMAN_HOME=/var/lib/mailman
+MAILMAN_WRAP=MAILMAN_HOME/mail/mailman
+
+# User and group for Mailman, should match your --with-mail-gid
+# switch to Mailman's configure script.
+MAILMAN_USER=list
+MAILMAN_GROUP=daemon
