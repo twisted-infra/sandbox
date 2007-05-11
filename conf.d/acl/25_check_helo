@@ -1,0 +1,36 @@
+### acl/20_exim4-config_check_helo
+#################################
+
+# This access control list checks the HELO string.  The tests are run
+# in order until the address is either accepted or denied.
+
+acl_check_helo:
+  accept
+    hosts = :
+  accept
+    hosts = +relay_from_hosts
+
+  # Forged hostname -HELOs as one of my own IPs
+  accept
+    condition = ${if eq{$sender_helo_name}{$interface_address}{yes}{no}}
+    set acl_c0 = Forged IP detected in HELO: $sender_helo_name
+    delay = 5s
+
+  accept
+    condition   = ${lookup {$sender_helo_name} \
+                    lsearch{/etc/exim4/reject-helo} \
+                    {yes}{no}}
+    set acl_c0 = Forged IP detected in HELO: $sender_helo_name
+    delay = 5s
+
+  accept  condition  = ${if and {{match {$sender_helo_name}\
+                                        {\N^(?i)\[IPv6:(.+)\]$\N}}\
+                                 {isip6 {$1}}}\
+                            {true}{false}}
+
+  accept
+     condition = ${if match{$sender_helo_name}{\\.}{no}{yes}}
+     set acl_c0 = Invalid HELO.
+     delay = 5s
+
+  accept

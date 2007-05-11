@@ -144,3 +144,8 @@ CHECK_RCPT_LOCAL_LOCALPARTS = ^[.] : ^.*[@%!/|\'`#&?]
 .ifndef CHECK_RCPT_REMOTE_LOCALPARTS
 CHECK_RCPT_REMOTE_LOCALPARTS = ^[./|] : ^.*[@%!\'`#&?] : ^.*/\\.\\./
 .endif
+
+
+
+# LOCAL:
+CHECK_RCPT_VERIFY_SENDER = 1

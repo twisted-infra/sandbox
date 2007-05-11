@@ -18,7 +18,6 @@ acl_check_rcpt:
     hosts = +relay_from_hosts
     control = submission/sender_retain
 
-
   # The following section of the ACL is concerned with local parts that contain
   # certain non-alphanumeric characters. Dots in unusual places are
   # handled by this ACL as well.
@@ -62,6 +61,33 @@ acl_check_rcpt:
   .endif
 
 
+
+## LOCAL: Accept mail to mailman -bounces addresses always; if it's a
+## mailman bounce we'd actually rather mailman get with it than to
+## reject it in exim, even for *clearly* bad hosts.
+  accept
+    domains = +local_domains
+    local_parts = *-bounces : *-bounces+*
+    endpass
+    message = unknown user
+    verify = recipient
+
+# LOCAL: deny mails if the helo checks flagged it as to be denied
+#  but, don't care about the failing checks if the user authenticated.
+  deny  ! authenticated = *
+          condition     = ${if def:acl_c0 {true}{false}}
+          log_message   = $acl_c0
+          message       = $acl_c0
+          delay         = 45s
+
+# LOCAL: delay upon invalid HELO.
+  warn
+    ! authenticated = *
+    hosts = ! +relay_from_hosts : *
+    message = X-Warning-HELO: invalid HELO/EHLO data
+     !verify = helo
+     delay = 30s
+
   # Accept mail to postmaster in any local domain, regardless of the source,
   # and without verifying the sender.
   #
@@ -103,7 +129,6 @@ acl_check_rcpt:
     hosts = ${if exists{CONFDIR/local_host_blacklist}\
                  {CONFDIR/local_host_blacklist}\
                  {}}
-
 
   # Deny unless the sender address can be verified.
   #
@@ -151,6 +176,7 @@ acl_check_rcpt:
     message = X-Host-Lookup-Failed: Reverse DNS lookup failed for $sender_host_address (${if eq{$host_lookup_failed}{1}{failed}{deferred}})
      condition = ${if and{{def:sender_host_address}{!def:sender_host_name}}\
                       {yes}{no}}
+     delay = 30s
   .endif
 
 

@@ -163,3 +163,14 @@ trusted_groups = MAIN_TRUSTED_GROUPS
 # SMTP Banner. The example includes the Debian version in the SMTP dialog
 # MAIN_SMTP_BANNER = "${primary_hostname} ESMTP Exim ${version_number} (Debian package DEBCONFpackageversionDEBCONF) ${tod_full}"
 # smtp_banner = $smtp_active_hostname ESMTP Exim $version_number $tod_full
+
+
+
+
+# LOCAL:
+# Disable pipelining, so as to trip up spammers better
+pipelining_advertise_hosts = :
+# Attempt to verify HELO ip address
+helo_try_verify_hosts = *
+# Run HELO acl checks
+acl_smtp_helo = acl_check_helo
