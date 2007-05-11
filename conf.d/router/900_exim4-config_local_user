@@ -1,0 +1,14 @@
+
+### router/900_exim4-config_local_user
+#################################
+
+local_user:
+  debug_print = "R: local_user for $local_part@$domain"
+  driver = accept
+  domains = +local_domains
+  check_local_user
+  local_parts = ! root
+  transport = LOCAL_DELIVERY
+
+
+

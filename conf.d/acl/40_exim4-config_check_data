@@ -1,0 +1,38 @@
+
+### acl/40_exim4-config_check_data
+#################################
+
+acl_check_data:
+
+  # Deny unless the address list headers are syntactically correct.
+  #
+  # If you enable this, you might reject legitimate mail.
+  .ifdef CHECK_DATA_VERIFY_HEADER_SYNTAX
+  deny
+    message = Message headers fail syntax check
+    !acl = acl_whitelist_local_deny
+    !verify = header_syntax
+  .endif
+
+
+  # require that there is a verifiable sender address in at least
+  # one of the "Sender:", "Reply-To:", or "From:" header lines.
+  .ifdef CHECK_DATA_VERIFY_HEADER_SENDER
+  deny
+    message = No verifiable sender address in message headers
+    !acl = acl_whitelist_local_deny
+    !verify = header_sender
+  .endif
+
+
+  # This hook allows you to hook in your own ACLs without having to
+  # modify this file. If you do it like we suggest, you'll end up with
+  # a small performance penalty since there is an additional file being
+  # accessed. This doesn't happen if you leave the macro unset.
+  .ifdef CHECK_DATA_LOCAL_ACL_FILE
+  .include CHECK_DATA_LOCAL_ACL_FILE
+  .endif
+
+
+  # accept otherwise
+  accept

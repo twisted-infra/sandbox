@@ -1,0 +1,22 @@
+### CONFDIR/passwd.client
+#
+# target.mail.server.example is the canonical host name of your SMTP
+#   smarthost. You mist be careful here. Many ISPs provide only an
+#   alias name of their SMTP smarthost. You need to check the canonical
+#   name by yourself manually by querying the DNS, for example by using
+#   the host command. If the SMTP smarthost alias expands to multiple
+#   IPs, you probably need to have multiple lines or a wild card in the
+#   target.mail.server.example field, and when your ISP changes the
+#   alias, you will need to manually fix that. This is currently not
+#   possibly any better, see #244724.
+#   A value of * will divulge the password to any SMTP server asking for
+#   it. This is generally fine if you only have one SMTP server configured.
+#
+# login is you login name to the SMTP smarthost.
+#
+# password is your SMTP password in clear text. If you do not know
+#   about your SMTP password, you can try using your POP3 password as a
+#   first guess.
+#
+# Example:
+### target.mail.server.example:login:password
