@@ -1,0 +1,7 @@
+block_expired_accounts:
+  driver = redirect
+  domains = +local_domains
+  local_parts = /etc/exim4/expired_accounts
+  data = :fail: User account expired and not accepting mail.
+  allow_fail
+
