@@ -1,0 +1,7 @@
+acl_check_mail:
+  deny
+    condition = ${if eq{$interface_port}{587} {yes}{no}}
+    condition = ${if !def:authenticated_id {yes}{no}}
+    message = SMTP AUTH required before submission
+
+  accept

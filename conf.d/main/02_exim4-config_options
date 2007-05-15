@@ -168,9 +168,19 @@ trusted_groups = MAIN_TRUSTED_GROUPS
 
 
 # LOCAL:
+
 # Disable pipelining, so as to trip up spammers better
 pipelining_advertise_hosts = :
+
 # Attempt to verify HELO ip address
 helo_try_verify_hosts = *
+
 # Run HELO acl checks
 acl_smtp_helo = acl_check_helo
+
+# Enforce AUTH on port 587
+acl_smtp_mail = acl_check_mail
+
+# Listen on a bunch of ports:
+daemon_smtp_port = 25:465:587
+tls_on_connect_ports = 465

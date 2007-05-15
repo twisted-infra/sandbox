@@ -149,3 +149,4 @@ CHECK_RCPT_REMOTE_LOCALPARTS = ^[./|] : ^.*[@%!\'`#&?] : ^.*/\\.\\./
 
 # LOCAL:
 CHECK_RCPT_VERIFY_SENDER = 1
+MAIN_TLS_ENABLE = 1

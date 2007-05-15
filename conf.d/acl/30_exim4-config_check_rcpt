@@ -139,7 +139,7 @@ acl_check_rcpt:
   deny
     message = Sender verification failed
     !acl = acl_whitelist_local_deny
-    !verify = sender
+    !verify = sender/callout=30s,defer_ok
   .endif
 
   # For some sender domains, we do callout to verify if a sender
