@@ -231,8 +231,11 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
                 owners = [x.strip() for x in
                           this_action['set_owner'].split(',')]
             elif self.config.getbool('ticket', 'restrict_owner'):
-                perm = PermissionSystem(self.env)
-                owners = perm.get_users_with_permission('TICKET_MODIFY')
+                db = self.env.get_db_cnx()
+                owners = [
+                    username
+                    for (username, name, email)
+                    in self.env.get_known_users(db)]
                 owners.sort()
             else:
                 owners = None
