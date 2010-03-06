@@ -236,6 +236,7 @@ Read TracWorkflow for more information (don't forget to 'wiki upgrade' as well)
                     username
                     for (username, name, email)
                     in self.env.get_known_users(db)]
+                owners.append('')
                 owners.sort()
             else:
                 owners = None
