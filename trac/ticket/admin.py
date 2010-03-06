@@ -136,12 +136,11 @@ class ComponentAdminPanel(TicketAdminPanel):
 
         if self.config.getbool('ticket', 'restrict_owner'):
             perm = PermissionSystem(self.env)
-            def valid_owner(username):
-                return perm.get_user_permissions(username).get('TICKET_MODIFY')
-            data['owners'] = [username for username, name, email
-                              in self.env.get_known_users()
-                              if valid_owner(username)]
-            data['owners'].insert(0, '')
+            data['owners'] = [
+                username 
+                for (username, name, email)
+                in self.env.get_known_users()]
+            data['owners'].append('')
             data['owners'].sort()
         else:
             data['owners'] = None
