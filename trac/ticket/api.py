@@ -326,18 +326,16 @@ class TicketSystem(Component):
         return fields
 
     def eventually_restrict_owner(self, field, ticket=None):
-        """Restrict given owner field to be a list of users having
-        the TICKET_MODIFY permission (for the given ticket)
+        """
+        Restrict given owner field to be a list of known users.
         """
         if self.restrict_owner:
             field['type'] = 'select'
-            possible_owners = []
-            for user in PermissionSystem(self.env) \
-                    .get_users_with_permission('TICKET_MODIFY'):
-                if not ticket or \
-                        'TICKET_MODIFY' in PermissionCache(self.env, user,
-                                                           ticket.resource):
-                    possible_owners.append(user)
+            db = self.env.get_db_cnx()
+            possible_owners = [
+                username
+                for (username, name, email)
+                in self.env.get_known_users(db)]
             possible_owners.sort()
             field['options'] = possible_owners
             field['optional'] = True
