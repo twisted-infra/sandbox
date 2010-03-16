@@ -21,6 +21,7 @@ except ImportError:
     import dummy_threading as threading
 import setuptools
 import sys
+import time
 from urlparse import urlsplit
 
 from trac import db_default
@@ -211,6 +212,9 @@ class Environment(Component, ComponentManager):
         if create:
             for setup_participant in self.setup_participants:
                 setup_participant.environment_created()
+
+        self._known_users_cache_time = 0
+        self._known_users_cache = None
 
     def component_activated(self, component):
         """Initialize additional member variables for components.
@@ -408,18 +412,22 @@ class Environment(Component, ComponentManager):
         @param cnx: the database connection; if ommitted, a new connection is
                     retrieved
         """
-        if not cnx:
-            cnx = self.get_db_cnx()
-        cursor = cnx.cursor()
-        cursor.execute("SELECT DISTINCT s.sid, n.value, e.value "
-                       "FROM session AS s "
-                       " LEFT JOIN session_attribute AS n ON (n.sid=s.sid "
-                       "  and n.authenticated=1 AND n.name = 'name') "
-                       " LEFT JOIN session_attribute AS e ON (e.sid=s.sid "
-                       "  AND e.authenticated=1 AND e.name = 'email') "
-                       "WHERE s.authenticated=1 ORDER BY s.sid")
-        for username,name,email in cursor:
-            yield username, name, email
+        now = time.time()
+        # Use the cache for 10 seconds
+        if self._known_users_cache_time < now - 10:
+            if not cnx:
+                cnx = self.get_db_cnx()
+            cursor = cnx.cursor()
+            cursor.execute("SELECT DISTINCT s.sid, n.value, e.value "
+                           "FROM session AS s "
+                           " LEFT JOIN session_attribute AS n ON (n.sid=s.sid "
+                           "  and n.authenticated=1 AND n.name = 'name') "
+                           " LEFT JOIN session_attribute AS e ON (e.sid=s.sid "
+                           "  AND e.authenticated=1 AND e.name = 'email') "
+                           "WHERE s.authenticated=1 ORDER BY s.sid")
+            self._known_users_cache = cursor.fetchall()
+            self._known_users_cache_time = now
+        return iter(self._known_users_cache)
 
     def backup(self, dest=None):
         """Simple SQLite-specific backup of the database.
