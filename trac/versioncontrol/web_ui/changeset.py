@@ -314,8 +314,8 @@ class ChangesetModule(Component):
                                % (old_path.replace('/','_'), old, rpath, new)
             if format == 'diff':
                 self._render_diff(req, filename, repos, data)
-            elif format == 'zip':
-                self._render_zip(req, filename, repos, data)
+#            elif format == 'zip':
+#                self._render_zip(req, filename, repos, data)
 
         # -- HTML format
         self._render_html(req, repos, chgset, restricted, xhr, data)
@@ -329,8 +329,8 @@ class ChangesetModule(Component):
                                              'old': old})
         add_link(req, 'alternate', '?format=diff&'+diff_params,
                  _('Unified Diff'), 'text/plain', 'diff')
-        add_link(req, 'alternate', '?format=zip&'+diff_params, _('Zip Archive'),
-                 'application/zip', 'zip')
+#        add_link(req, 'alternate', '?format=zip&'+diff_params, _('Zip Archive'),
+#                 'application/zip', 'zip')
         add_script(req, 'common/js/diff.js')
         add_stylesheet(req, 'common/css/changeset.css')
         add_stylesheet(req, 'common/css/diff.css')
