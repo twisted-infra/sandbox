@@ -140,6 +140,7 @@ class CachedRepository(Repository):
                           (repos_youngest, self.youngest))
             if self.youngest:
                 next_youngest = self.repos.next_rev(self.youngest)
+                self.log.debug("next_rev(%r) == %r" % (self.youngest, next_youngest))
             else:
                 next_youngest = None
                 try:
@@ -151,10 +152,13 @@ class CachedRepository(Repository):
                             next_youngest = self.repos.next_rev(next_youngest, 
                                     find_initial_rev=True)
                     next_youngest = self.repos.normalize_rev(next_youngest)
-                except TracError:
+                except TracError, e:
+                    self.log.debug("cannot normalize oldest_rev: %r" % (e,))
                     return # can't normalize oldest_rev: repository was empty
 
+            self.log.debug("found next_youngest to be %r" % (next_youngest,))
             if next_youngest is None: # nothing to cache yet
+                self.log.debug("next_youngest None, nothing to cache")
                 return
 
             # 0. first check if there's no (obvious) resync in progress
@@ -163,6 +167,7 @@ class CachedRepository(Repository):
             for rev, in cursor:
                 # already there, but in progress, so keep ''previous''
                 # notion of 'youngest'
+                self.log.debug("an (obvious) resync is in progress (%r), skipping" % (rev,))
                 self.repos.clear(youngest_rev=self.youngest)
                 return
 
