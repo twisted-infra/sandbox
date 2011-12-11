@@ -413,8 +413,8 @@ class Environment(Component, ComponentManager):
                     retrieved
         """
         now = time.time()
-        # Use the cache for 10 seconds
-        if self._known_users_cache_time < now - 10:
+        # Use the cache for a day.  The data is very expensive to generate.
+        if self._known_users_cache_time < (now - 60 * 60 * 24):
             if not cnx:
                 cnx = self.get_db_cnx()
             cursor = cnx.cursor()
