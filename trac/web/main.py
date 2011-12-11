@@ -428,7 +428,7 @@ def dispatch_request(environ, start_response):
             #       objects with a __del__ method caught in a cycle)
             #
             ##gc.set_debug(gc.DEBUG_UNCOLLECTABLE)
-            unreachable = gc.collect()
+            ## unreachable = gc.collect()
             ##env.log.debug("%d unreachable objects found.", unreachable)
             ##uncollectable = len(gc.garbage)
             ##if uncollectable:
