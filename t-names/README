@@ -1,0 +1,3 @@
+This runs DNS for a lot of domains.
+
+The Zones/ directory is a bzr repository containing all of the configuration for the server.  There are start and stop scripts in the Run/ directory.

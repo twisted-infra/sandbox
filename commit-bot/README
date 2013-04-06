@@ -1,0 +1,13 @@
+How to update commit-bot aka kenaan
+===================================
+
+
+ * Make sure you're logged in as commit-bot, not root.
+ * cd /srv/commit-bot/Projects/twisted-trac-integration/trunk
+ * bzr pull 
+ * cd /srv/commit-bot/Projects/twisted-trac-integration/branches/local-config/
+ * bzr merge ../../trunk/
+ * bzr commit -m "Catch up with trunk"
+ * kill $(pgrep -f commit_bot)
+ * /srv/commit-bot/start.sh
+ * Logs are at /srv/commit-bot/Projects/twisted-trac-integration/branches/local-config/commit-bot/twistd.log

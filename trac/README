@@ -1,0 +1,19 @@
+PostgreSQL
+==========
+
+The trac instance has its own postgresql server.  The platform packaged
+version of postgresql isn't sufficient for trac's requirements.  The server
+lives beneath ~/Database/.  You can start, stop, or restart it like:
+
+  pg_ctl <command> -D ~/Database/
+
+You may find you need to stop trac before postgresql will shut down.
+
+Trac
+====
+
+Trac server runs against the source in
+~/.local/lib/python2.5/site-packages/Trac-0.11.6-py2.5.egg/.  This
+directory is also a bzr branch.  The bzr branch has a number of
+important patches checked into it.  Don't destroy or lose them.
+

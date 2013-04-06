@@ -1,0 +1,32 @@
+This is the service account for the highscores website published at
+<http://twistedmatrix.com/highscores/>.
+
+RUNNING
+=======
+The service runs on the PyPy installed in ~pypy.
+
+The website is published as a Twisted Web personal server.
+
+The server may be started, if it is not running, using
+~highscore/startit.sh.  The server will be automatically restarted on
+reboot by a cronjob installed on the highscore account.
+
+UPDATES
+=======
+The intended mechanism for updating the service is pushing new
+changesets to <bzr+ssh://highscore@twistedmatrix.com/~/highscores>.
+
+If necessary, add your public key to ~highscore/.ssh/authorized_keys
+
+The source for the highscore server is in a bzr branch at
+<~highscore/highscores>.  The branch intentionally has no working
+copy.  Please do not give it one.  The branch.conf for this branch
+will be overwritten with the one checked *in* to the branch on each
+push.  Make changes to the checked in copy if you want them to
+persist.
+
+There is a lightweight working copy of the branch at
+<~highscore/running-server-working-tree>.  The service runs against
+this copy of the source.  Do not edit this copy of the source.  The
+automatic updater will periodically delete this directory and replace
+it with a fresh checkout.
