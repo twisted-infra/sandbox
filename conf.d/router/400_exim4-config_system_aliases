@@ -14,14 +14,11 @@
 # of case. If you decide to handle /etc/aliases in a caseful way, you
 # need to make arrangements for a caseless postmaster.
 #
-# Piping to programs in /etc/aliases is disabled per default.
+# Delivery to arbitrary directories, files, and piping to programs in
+# /etc/aliases is disabled per default.
 # If that is a problem for you, see
 #   /usr/share/doc/exim4-base/README.Debian.gz
 # for explanation and some workarounds.
-#
-# Note that the transports listed below are the same as are used for
-# .forward files; you might want to set up different ones for pipe and
-# file deliveries from aliases.
 
 system_aliases:
   debug_print = "R: system_aliases for $local_part@$domain"

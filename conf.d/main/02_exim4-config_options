@@ -4,6 +4,15 @@
 
 
 # Defines the access control list that is run when an
+# SMTP MAIL command is received.
+#
+.ifndef MAIN_ACL_CHECK_MAIL
+MAIN_ACL_CHECK_MAIL = acl_check_mail
+.endif
+acl_smtp_mail = MAIN_ACL_CHECK_MAIL
+
+
+# Defines the access control list that is run when an
 # SMTP RCPT command is received.
 #
 .ifndef MAIN_ACL_CHECK_RCPT
@@ -28,6 +37,25 @@ message_size_limit = MESSAGE_SIZE_LIMIT
 .endif
 
 
+# If you are running exim4-daemon-heavy or a custom version of Exim that
+# was compiled with the content-scanning extension, you can cause incoming
+# messages to be automatically scanned for viruses. You have to modify the
+# configuration in two places to set this up. The first of them is here,
+# where you define the interface to your scanner. This example is typical
+# for ClamAV; see the manual for details of what to set for other virus
+# scanners. The second modification is in the acl_check_data access
+# control list.
+
+# av_scanner = clamd:/tmp/clamd
+
+
+# For spam scanning, there is a similar option that defines the interface to
+# SpamAssassin. You do not need to set this if you are using the default, which
+# is shown in this commented example. As for virus scanning, you must also
+# modify the acl_check_data access control list to enable spam scanning.
+
+# spamd_address = 127.0.0.1 783
+
 # Domain used to qualify unqualified recipient addresses
 # If this option is not set, the qualify_domain value is used.
 # qualify_recipient = <value of qualify_domain>
@@ -39,6 +67,8 @@ message_size_limit = MESSAGE_SIZE_LIMIT
 # in the default config since it is seldomly used and frequently abused.
 # Domain literal support also needs a special router, which is automatically
 # enabled if you use the enable macro MAIN_ALLOW_DOMAIN_LITERALS.
+# Additionally, you might want to make your local IP addresses (or @[])
+# local domains.
 .ifdef MAIN_ALLOW_DOMAIN_LITERALS
 allow_domain_literals
 .endif
@@ -57,22 +87,35 @@ host_lookup = MAIN_HOST_LOOKUP
 
 # In a minimaldns setup, update-exim4.conf guesses the hostname and
 # dumps it here to avoid DNS lookups being done at Exim run time.
-DEBCONF_hardcode_primary_hostname_DEBCONF
+.ifdef MAIN_HARDCODE_PRIMARY_HOSTNAME
+primary_hostname = MAIN_HARDCODE_PRIMARY_HOSTNAME
+.endif
 
-
-# Do RFC 1413 (ident) callbacks for incoming SMTP calls. The default
-# is to do lookups for all hosts with a timeout of 30 seconds.
-# The options can be used to limit the hosts to which these calls are
-# made, and/or change the timeout that is used. If the timeout is zero,
-# no RFC 1413 calls are made. RFC 1413 calls are cheap and can provide
-# useful information for tracing problem messages, but some hosts and
-# firewalls are misconfigured to drop the requests instead of either
-# answering or rejecting them. This can result in timeouts, leading to
-# delays on starting up an SMTP session and to strange behavior in
-# settings where SMTP callouts are used.
+# The settings below, which are actually the same as the defaults in the
+# code, cause Exim to make RFC 1413 (ident) callbacks for all incoming SMTP
+# calls. You can limit the hosts to which these calls are made, and/or change
+# the timeout that is used. If you set the timeout to zero, all RFC 1413 calls
+# are disabled. RFC 1413 calls are cheap and can provide useful information
+# for tracing problem messages, but some hosts and firewalls are
+# misconfigured to drop the requests instead of either answering or
+# rejecting them. This can result in a timeout instead of an immediate refused
+# connection, leading to delays on starting up SMTP sessions. (The default was
+# reduced from 30s to 5s for release 4.61.)
 # rfc1413_hosts = *
-# rfc1413_query_timeout = 30s
+# rfc1413_query_timeout = 5s
 
+# When using an external relay tester (such as rt.njabl.org and/or the
+# currently defunct relay-test.mail-abuse.org, the test may be aborted
+# since exim complains about "too many nonmail commands". If you want
+# the test to complete, add the host from where "your" relay tester
+# connects from to the MAIN_SMTP_ACCEPT_MAX_NOMAIL_HOSTS macro.
+# Please note that a non-empty setting may cause extra DNS lookups to
+# happen, which is the reason why this option is commented out in the
+# default settings.
+# MAIN_SMTP_ACCEPT_MAX_NOMAIL_HOSTS = !rt.njabl.org
+.ifdef MAIN_SMTP_ACCEPT_MAX_NOMAIL_HOSTS
+smtp_accept_max_nonmail_hosts = MAIN_SMTP_ACCEPT_MAX_NOMAIL_HOSTS
+.endif
 
 # By default, exim forces a Sender: header containing the local
 # account name at the local host name in all locally submitted messages
@@ -152,19 +195,9 @@ trusted_groups = MAIN_TRUSTED_GROUPS
 # admin_groups = <unset>
 
 
-# customize logging. See spec.txt 48.15.
-# If you want to debug, it is probably a good idea to set this to
-# "+all -subject -arguments".
-# If you use TLS, it might be a good idea to set "+tls_cipher
-# +tls_peerdn".
-# log_selector = <unset>
-
-
 # SMTP Banner. The example includes the Debian version in the SMTP dialog
-# MAIN_SMTP_BANNER = "${primary_hostname} ESMTP Exim ${version_number} (Debian package DEBCONFpackageversionDEBCONF) ${tod_full}"
+# MAIN_SMTP_BANNER = "${primary_hostname} ESMTP Exim ${version_number} (Debian package MAIN_PACKAGE_VERSION) ${tod_full}"
 # smtp_banner = $smtp_active_hostname ESMTP Exim $version_number $tod_full
-
-
 
 
 # LOCAL:
@@ -178,9 +211,11 @@ helo_try_verify_hosts = *
 # Run HELO acl checks
 acl_smtp_helo = acl_check_helo
 
-# Enforce AUTH on port 587
-acl_smtp_mail = acl_check_mail
-
 # Listen on a bunch of ports:
 daemon_smtp_port = 25:465:587
 tls_on_connect_ports = 465
+
+smtp_accept_max = 600
+#smtp_connect_backlog = 100
+
+smtp_receive_timeout = 30s

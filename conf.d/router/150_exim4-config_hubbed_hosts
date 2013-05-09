@@ -4,22 +4,8 @@
 
 # route specific domains manually.
 #
-# The most common application of this router is to handle relaying to nonlocal
-# domains that the local host is primary MX for. That means that local
-# information needs to be present for a domain to be handled correctly.
-#
-# That information is put into the optional file /etc/exim4/hubbed_hosts
-# which contains key-value pairs of domain pattern and route data.
-#
-# foo.example: internal.mail.example.com
-# bar.example: 192.168.183.3
-#
-# will cause mail for foo.example to be sent to the host
-# internal.mail.example (IP address derived from A record only), and
-# mail to bar.example to be sent to 192.168.183.3.
-#
-# If the file /etc/exim4/hubbed_hosts does not exist, this router is a
-# no-op.
+# see exim4-config_files(5) and spec.txt chapter 20.3 through 20.7 for
+# more detailed documentation.
 
 hubbed_hosts:
   debug_print = "R: hubbed_hosts for $domain"

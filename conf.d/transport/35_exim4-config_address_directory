@@ -5,8 +5,9 @@
 address_directory:
   debug_print = "T: address_directory for $local_part@$domain"
   driver = appendfile
-  envelope_to_add = true
-  return_path_add = true
+  delivery_date_add
+  envelope_to_add
+  return_path_add
   check_string = ""
   escape_string = ""
   maildir_format

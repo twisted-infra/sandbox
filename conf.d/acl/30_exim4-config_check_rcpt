@@ -7,11 +7,88 @@
 # accepted or denied.
 #
 acl_check_rcpt:
+  # greylistd(8) configuration follows.
+  # This statement has been added by "greylistd-setup-exim4",
+  # and can be removed by running "greylistd-setup-exim4 remove".
+  # Any changes you make here will then be lost.
+  #
+  # Perform greylisting on incoming messages from remote hosts.
+  # We do NOT greylist messages with no envelope sender, because that
+  # would conflict with remote hosts doing callback verifications, and we
+  # might not be able to send mail to such hosts for a while (until the
+  # callback attempt is no longer greylisted, and then some).
+  #
+  # We also check the local whitelist to avoid greylisting mail from
+  # hosts that are expected to forward mail here (such as backup MX hosts,
+  # list servers, etc).
+  #
+  # Because the recipient address has not yet been verified, we do so
+  # now and skip this statement for non-existing recipients.  This is
+  # in order to allow for a 550 (reject) response below.  If the delivery
+  # happens over a remote transport (such as "smtp"), recipient callout
+  # verification is performed, with the original sender intact.
+  #
+  defer
+    message        = $sender_host_address is not yet authorized to deliver \
+                     mail from <$sender_address> to <$local_part@$domain>. \
+                     Please try later.
+    log_message    = greylisted.
+    !senders       = :
+    recipients     = exarkun@twistedmatrix.com
+    !hosts         = : +relay_from_hosts : \
+                     ${if exists {/etc/greylistd/whitelist-hosts}\
+                                 {/etc/greylistd/whitelist-hosts}{}} : \
+                     ${if exists {/var/lib/greylistd/whitelist-hosts}\
+                                 {/var/lib/greylistd/whitelist-hosts}{}}
+    !authenticated = *
+    !acl           = acl_local_deny_exceptions
+    domains        = +local_domains : +relay_to_domains
+    verify         = recipient/callout=20s,use_sender,defer_ok
+    condition      = ${readsocket{/var/run/greylistd/socket}\
+                                 {--grey \
+                                  $sender_host_address \
+                                  $sender_address \
+                                  $local_part@$domain}\
+                                 {5s}{}{false}}
+
+ # Deny if blacklisted by greylist
+ deny
+   message = $sender_host_address is blacklisted from delivering \
+                     mail from <$sender_address> to <$local_part@$domain>.
+   log_message = blacklisted.
+   !senders        = :
+   !authenticated = *
+   verify         = recipient/callout=20s,use_sender,defer_ok
+   condition      = ${readsocket{/var/run/greylistd/socket}\
+                                 {--black \
+                                  $sender_host_address \
+                                  $sender_address \
+                                  $local_part@$domain}\
+                                 {5s}{}{false}}
+
+
+
+ # Deny if blacklisted by greylist
+ deny
+   message = $sender_host_address is blacklisted from delivering \
+                     mail from <$sender_address> to <$local_part@$domain>.
+   log_message = blacklisted.
+   !senders        = :
+   !authenticated = *
+   verify         = recipient/callout=20s,use_sender,defer_ok
+   condition      = ${readsocket{/var/run/greylistd/socket}\
+                                 {--black \
+                                  $sender_host_address \
+                                  $sender_address \
+                                  $local_part@$domain}\
+                                 {5s}{}{false}}
+
+
+
   # Accept if the source is local SMTP (i.e. not over TCP/IP). We do this by
   # testing for an empty sending host field.
   accept
     hosts = :
-
 
   # Add missing Date and Message-ID header for relayed messages
   warn
@@ -78,7 +155,9 @@ acl_check_rcpt:
           condition     = ${if def:acl_c0 {true}{false}}
           log_message   = $acl_c0
           message       = $acl_c0
+.ifdef USE_ELAY
           delay         = 45s
+.endif
 
 # LOCAL: delay upon invalid HELO.
   warn
@@ -86,7 +165,9 @@ acl_check_rcpt:
     hosts = ! +relay_from_hosts : *
     message = X-Warning-HELO: invalid HELO/EHLO data
      !verify = helo
+.ifdef USE_DELAY
      delay = 30s
+.endif
 
   # Accept mail to postmaster in any local domain, regardless of the source,
   # and without verifying the sender.
@@ -109,7 +190,7 @@ acl_check_rcpt:
   # the black list. See /usr/share/doc/exim4-config/default_acl for details.
   deny
     message = sender envelope address $sender_address is locally blacklisted here. If you think this is wrong, get in touch with postmaster
-    !acl = acl_whitelist_local_deny
+    !acl = acl_local_deny_exceptions
     senders = ${if exists{CONFDIR/local_sender_blacklist}\
                    {CONFDIR/local_sender_blacklist}\
                    {}}
@@ -125,7 +206,7 @@ acl_check_rcpt:
   # the black list. See /usr/share/doc/exim4-config/default_acl for details.
   deny
     message = sender IP address $sender_host_address is locally blacklisted here. If you think this is wrong, get in touch with postmaster
-    !acl = acl_whitelist_local_deny
+    !acl = acl_local_deny_exceptions
     hosts = ${if exists{CONFDIR/local_host_blacklist}\
                  {CONFDIR/local_host_blacklist}\
                  {}}
@@ -138,14 +219,14 @@ acl_check_rcpt:
   .ifdef CHECK_RCPT_VERIFY_SENDER
   deny
     message = Sender verification failed
-    !acl = acl_whitelist_local_deny
-    !verify = sender/callout=30s,defer_ok
+    !acl = acl_local_deny_exceptions
+    !verify = sender
   .endif
 
   # For some sender domains, we do callout to verify if a sender
   # exists.
   deny
-    !acl = acl_whitelist_local_deny
+    !acl = acl_local_deny_exceptions
     senders = ${if exists{CONFDIR/local_sender_callout}\
                          {CONFDIR/local_sender_callout}\
                    {}}
@@ -156,7 +237,7 @@ acl_check_rcpt:
   # exists. This is especially handy for customers that receive a lot of
   # spam to non-existent addresses.
   deny
-    !acl = acl_whitelist_local_deny
+    !acl = acl_local_deny_exceptions
     recipients = ${if exists{CONFDIR/local_rcpt_callout}\
                             {CONFDIR/local_rcpt_callout}\
                       {}}
@@ -176,7 +257,9 @@ acl_check_rcpt:
     message = X-Host-Lookup-Failed: Reverse DNS lookup failed for $sender_host_address (${if eq{$host_lookup_failed}{1}{failed}{deferred}})
      condition = ${if and{{def:sender_host_address}{!def:sender_host_name}}\
                       {yes}{no}}
+.ifdef USE_DELAY
      delay = 30s
+.endif
   .endif
 
 
@@ -202,6 +285,13 @@ acl_check_rcpt:
                     {}}
     dnslists = CHECK_RCPT_DOMAIN_DNSBLS/$sender_address_domain
   .endif
+
+### LOCAL: drop recipients that exist in local_recipient_blacklist
+  deny
+    !acl = acl_local_deny_exceptions
+    recipients = ${if exists{CONFDIR/local_recipient_blacklist}\
+                   {CONFDIR/local_recipient_blacklist}\
+                   {}}
 
 
   # This hook allows you to hook in your own ACLs without having to

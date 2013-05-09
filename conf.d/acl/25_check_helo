@@ -14,8 +14,9 @@ acl_check_helo:
   accept
     condition = ${if eq{$sender_helo_name}{$interface_address}{yes}{no}}
     set acl_c0 = Forged IP detected in HELO: $sender_helo_name
+.ifdef USE_DELAY
     delay = 5s
-
+.endif
   accept
     condition   = ${lookup {$sender_helo_name} \
                     lsearch{/etc/exim4/reject-helo} \
@@ -30,7 +31,9 @@ acl_check_helo:
 
   accept
      condition = ${if match{$sender_helo_name}{\\.}{no}{yes}}
-     set acl_c0 = Invalid HELO.
+     set acl_c0 = Invalid HELO: $sender_helo_name
+.ifdef USE_DELAY
      delay = 5s
+.endif
 
   accept

@@ -1,9 +1,10 @@
 
-# router/600_exim4-config_userforward
+### router/600_exim4-config_userforward
 #################################
 
 # This router handles forwarding using traditional .forward files in users'
-# home directories and filtering with exim's builtin filter language. 
+# home directories. It also allows mail filtering with a forward file
+# starting with the string "# Exim filter" or "# Sieve filter".
 #
 # The no_verify setting means that this router is skipped when Exim is
 # verifying addresses. Similarly, no_expn means that this router is skipped if
@@ -24,10 +25,12 @@ userforward:
   domains = +local_domains
   check_local_user
   file = $home/.forward
+  require_files = $local_part:$home/.forward
   no_verify
   no_expn
   check_ancestor
   allow_filter
+  forbid_smtp_code = true
   directory_transport = address_directory
   file_transport = address_file
   pipe_transport = address_pipe

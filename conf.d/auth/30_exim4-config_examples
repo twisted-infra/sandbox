@@ -2,44 +2,54 @@
 ### auth/30_exim4-config_examples
 #################################
 
-# The examples below are for server side authentication
+# The examples below are for server side authentication, when the
+# local exim is SMTP server and clients authenticate to the local exim.
 
 # They allow two styles of plain-text authentication against an
-# CONFDIR/passwd file which has records in the following format
-#   username:crypted-password:clear-password
-# crypted-password is the crypt(3)-created hash of your password. You
-#   can, for example, use the mkpasswd program from the whois package
-#   to create a crypted password. It is recommended to use md5 hashing,
-#   with mkpasswd -H md5.
-# clear-password is only necessary if you want to offer CRAM-MD5
-#   authentication. If you don't plan on doing so, the third column can be
-#   omitted completely.
+# CONFDIR/passwd file whose syntax is described in exim4_passwd(5).
 
 # Hosts that are allowed to use AUTH are defined by the
 # auth_advertise_hosts option in the main configuration. The default is
 # "*", which allows authentication to all hosts over all kinds of
 # connections if there is at least one authenticator defined here.
 # Authenticators which rely on unencrypted clear text passwords don't
-# advertise on unencrypted connections by default. You can set
-# AUTH_SERVER_ALLOW_NOTLS_PASSWORDS to advertise unencrypted clear text
-# password based authenticators on all connections.
+# advertise on unencrypted connections by default. Thus, it might be
+# wise to set up TLS to allow encrypted connections. If TLS cannot be
+# used for some reason, you can set AUTH_SERVER_ALLOW_NOTLS_PASSWORDS to
+# advertise unencrypted clear text password based authenticators on all
+# connections. As this is severely reducing security, using TLS is
+# preferred over allowing clear text password based authenticators on
+# unencrypted connections.
+
+# PLAIN authentication has no server prompts. The client sends its
+# credentials in one lump, containing an authorization ID (which we do not
+# use), an authentication ID, and a password. The latter two appear as
+# $auth2 and $auth3 in the configuration and should be checked against a
+# valid username and password. In a real configuration you would typically
+# use $auth2 as a lookup key, and compare $auth3 against the result of the
+# lookup, perhaps using the crypteq{}{} condition.
 
 # plain_server:
 #   driver = plaintext
 #   public_name = PLAIN
-#   server_condition = "${if crypteq{$3}{${extract{1}{:}{${lookup{$2}lsearch{CONFDIR/passwd}{$value}{*:*}}}}}{1}{0}}"
-#   server_set_id = $2
+#   server_condition = "${if crypteq{$auth3}{${extract{1}{:}{${lookup{$auth2}lsearch{CONFDIR/passwd}{$value}{*:*}}}}}{1}{0}}"
+#   server_set_id = $auth2
 #   server_prompts = :
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
-#
+
+# LOGIN authentication has traditional prompts and responses. There is no
+# authorization ID in this mechanism, so unlike PLAIN the username and
+# password are $auth1 and $auth2. Apart from that you can use the same
+# server_condition setting for both authenticators.
+
 # login_server:
 #   driver = plaintext
 #   public_name = LOGIN
 #   server_prompts = "Username:: : Password::"
-#   server_condition = "${if crypteq{$2}{${extract{1}{:}{${lookup{$1}lsearch{CONFDIR/passwd}{$value}{*:*}}}}}{1}{0}}"
-#   server_set_id = $1
+#   server_condition = "${if crypteq{$auth2}{${extract{1}{:}{${lookup{$auth1}lsearch{CONFDIR/passwd}{$value}{*:*}}}}}{1}{0}}"
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -47,24 +57,24 @@
 # cram_md5_server:
 #   driver = cram_md5
 #   public_name = CRAM-MD5
-#   server_secret = ${extract{2}{:}{${lookup{$1}lsearch{CONFDIR/passwd}{$value}fail}}}
-#   server_set_id = $1
+#   server_secret = ${extract{2}{:}{${lookup{$auth1}lsearch{CONFDIR/passwd}{$value}fail}}}
+#   server_set_id = $auth1
 
 # Here is an example of CRAM-MD5 authentication against PostgreSQL:
 #
 # psqldb_auth_server:
 #   driver = cram_md5
 #   public_name = CRAM-MD5
-#   server_secret = ${lookup pgsql{SELECT pw FROM users WHERE username = '${quote_pgsql:$1}'}{$value}fail}
-#   server_set_id = $1
+#   server_secret = ${lookup pgsql{SELECT pw FROM users WHERE username = '${quote_pgsql:$auth1}'}{$value}fail}
+#   server_set_id = $auth1
 
 # Authenticate against local passwords using sasl2-bin
 # Requires exim_uid to be a member of sasl group, see README.Debian.gz
 # plain_saslauthd_server:
 #   driver = plaintext
 #   public_name = PLAIN
-#   server_condition = ${if saslauthd{{$2}{$3}}{1}{0}}
-#   server_set_id = $2
+#   server_condition = ${if saslauthd{{$auth2}{$auth3}}{1}{0}}
+#   server_set_id = $auth2
 #   server_prompts = :
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
@@ -75,8 +85,8 @@
 #   public_name = LOGIN
 #   server_prompts = "Username:: : Password::"
 #   # don't send system passwords over unencrypted connections
-#   server_condition = ${if saslauthd{{$1}{$2}}{1}{0}}
-#   server_set_id = $1
+#   server_condition = ${if saslauthd{{$auth1}{$auth2}}{1}{0}}
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -85,7 +95,7 @@
 #   driver = cyrus_sasl
 #   public_name = NTLM
 #   server_realm = <short main hostname>
-#   server_set_id = $1
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -94,26 +104,25 @@
 #   driver = cyrus_sasl
 #   public_name = DIGEST-MD5
 #   server_realm = <short main hostname>
-#   server_set_id = $1
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
 
 # Authentcate against cyrus-sasl
 # This is mainly untested, please report any problems to
-# pkg-exim4-users@lists.alioth.debian.org. If you have success with
-# using these authenticators until May 1 2005, please report as well.
+# pkg-exim4-users@lists.alioth.debian.org.
 # cram_md5_sasl_server:
 #   driver = cyrus_sasl
 #   public_name = CRAM-MD5
 #   server_realm = <short main hostname>
-#   server_set_id = $1
+#   server_set_id = $auth1
 #
 # plain_sasl_server:
 #   driver = cyrus_sasl
 #   public_name = PLAIN
 #   server_realm = <short main hostname>
-#   server_set_id = $1
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -122,7 +131,7 @@
 #   driver = cyrus_sasl
 #   public_name = LOGIN
 #   server_realm = <short main hostname>
-#   server_set_id = $1
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -138,10 +147,10 @@
 #   server_condition = \
 #     ${extract {ADDRESS} \
 #               {${readsocket{/var/run/courier/authdaemon/socket} \
-#               {AUTH ${strlen:exim\nlogin\n$2\n$3\n}\nexim\nlogin\n$2\n$3\n} }} \
+#               {AUTH ${strlen:exim\nlogin\n$auth2\n$auth3\n}\nexim\nlogin\n$auth2\n$auth3\n} }} \
 #               {yes} \
 #               fail}
-#   server_set_id = $2
+#   server_set_id = $auth2
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -153,10 +162,10 @@
 #   server_condition = \
 #     ${extract {ADDRESS} \
 #               {${readsocket{/var/run/courier/authdaemon/socket} \
-#               {AUTH ${strlen:exim\nlogin\n$1\n$2\n}\nexim\nlogin\n$1\n$2\n} }} \
+#               {AUTH ${strlen:exim\nlogin\n$auth1\n$auth2\n}\nexim\nlogin\n$auth1\n$auth2\n} }} \
 #               {yes} \
 #               fail}
-#   server_set_id = $1
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -187,15 +196,8 @@
 ##############
 
 # These examples below are the equivalent for client side authentication.
-# They get the passwords from CONFDIR/passwd.client. This file should have
-# three columns separated by colons, the first contains the name of the
-# mailserver to authenticate against, the second the username and the third
-# contains the password.
-
-### # example for CONFDIR/passwd.client
-### mail.server:blah:secret
-### # default entry:
-### *:bar:foo
+# They get the passwords from CONFDIR/passwd.client, whose format is
+# defined in exim4_passwd_client(5)
 
 # Because AUTH PLAIN and AUTH LOGIN send the password in clear, we
 # only allow these mechanisms over encrypted connections by default.
@@ -205,21 +207,28 @@
 cram_md5:
   driver = cram_md5
   public_name = CRAM-MD5
-  client_name = ${extract{1}{:}{${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}
-  client_secret = ${extract{2}{:}{${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}
+  client_name = ${extract{1}{:}{${lookup{$host}nwildlsearch{CONFDIR/passwd.client}{$value}fail}}}
+  client_secret = ${extract{2}{:}{${lookup{$host}nwildlsearch{CONFDIR/passwd.client}{$value}fail}}}
+
+# this returns the matching line from passwd.client and doubles all ^
+PASSWDLINE=${sg{\
+                ${lookup{$host}nwildlsearch{CONFDIR/passwd.client}{$value}fail}\
+	        }\
+	        {\\N[\\^]\\N}\
+	        {^^}\
+	    }
 
 plain:
   driver = plaintext
   public_name = PLAIN
 .ifndef AUTH_CLIENT_ALLOW_NOTLS_PASSWORDS
-  client_send = "${if !eq{$tls_cipher}{}{\
-                     ^${extract{1}{::}\
-		       {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}\
-		     ^${extract{2}{::}\
-		       {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}\
+  client_send = "<; ${if !eq{$tls_cipher}{}\
+                    {^${extract{1}{:}{PASSWDLINE}}\
+		     ^${sg{PASSWDLINE}{\\N([^:]+:)(.*)\\N}{\\$2}}\
 		   }fail}"
 .else
-  client_send = "^${extract{1}{::}{${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}^${extract{2}{::}{${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}"
+  client_send = "<; ^${extract{1}{:}{PASSWDLINE}}\
+		    ^${sg{PASSWDLINE}{\\N([^:]+:)(.*)\\N}{\\$2}}"
 .endif
 
 login:
@@ -228,29 +237,18 @@ login:
 .ifndef AUTH_CLIENT_ALLOW_NOTLS_PASSWORDS
   # Return empty string if not non-TLS AND looking up $host in passwd-file
   # yields a non-empty string; fail otherwise.
-  client_send = "${if and{\
+  client_send = "<; ${if and{\
                           {!eq{$tls_cipher}{}}\
-                          {!eq\
-                              {${lookup{$host}lsearch*{CONFDIR/passwd.client}\
-                                 {$value}fail}}\
-                              {}}\
+                          {!eq{PASSWDLINE}{}}\
                          }\
                       {}fail}\
-                 : ${extract{1}{::}\
-		        {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}} \
-		 : ${extract{2}{::}\
-		     {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}"
+                 ; ${extract{1}{::}{PASSWDLINE}}\
+		 ; ${sg{PASSWDLINE}{\\N([^:]+:)(.*)\\N}{\\$2}}"
 .else
   # Return empty string if looking up $host in passwd-file yields a
   # non-empty string; fail otherwise.
-  client_send = "${if !eq\
-                          {${lookup\
-                            {$host}lsearch*{CONFDIR/passwd.client}\
-                            {$value}fail}}\
-                          {}\
+  client_send = "<; ${if !eq{PASSWDLINE}{}\
                       {}fail}\
-                 : ${extract{1}{::}\
-                        {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}} \
-                 : ${extract{2}{::}\
-                        {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}"
+                 ; ${extract{1}{::}{PASSWDLINE}}\
+		 ; ${sg{PASSWDLINE}{\\N([^:]+:)(.*)\\N}{\\$2}}"
 .endif

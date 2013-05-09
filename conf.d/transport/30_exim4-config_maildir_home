@@ -34,4 +34,8 @@ maildir_home:
   mode = 0600
   .endif
   mode_fail_narrower = false
-
+  # This transport always chdirs to $home before trying to deliver. If
+  # $home is not accessible, this chdir fails and prevents delivery.
+  # If you are in a setup where home directories might not be
+  # accessible, uncomment the current_directory line below.
+  # current_directory = /

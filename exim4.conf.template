@@ -1,7 +1,6 @@
 #####################################################
 ### main/01_exim4-config_listmacrosdefs
 #####################################################
-
 ######################################################################
 #      Runtime configuration file for Exim 4 (Debian Packaging)      #
 ######################################################################
@@ -14,10 +13,6 @@
 # If you find this comment anywhere else, somebody copied it there.
 # Documentation about the Debian exim4 configuration scheme can be
 # found in /usr/share/doc/exim4-base/README.Debian.gz.
-#
-# Strings like DEBCONFsomethingDEBCONF are replaced by installation
-# dependent values by update-exim4.conf, the script which builds the
-# actual configuration from the templates.
 ######################################################################
 
 ######################################################################
@@ -35,117 +30,76 @@ exim_path = /usr/sbin/exim4
 CONFDIR = /etc/exim4
 .endif
 
-# This sets a macro DC_minimaldns if dc_minimaldns=true. If
-# dc_minimaldns=false, this expands to an empty line.
-.ifndef DC_minimaldns
-DEBCONFminimaldnsDEBCONF
-.endif
-
-# Create other macros from Debconf. Macros created here are used in
-# other places in exim config.
-.ifndef DC_visiblename
-DC_visiblename=DEBCONFvisiblenameDEBCONF
-.endif
+# debconf-driven macro definitions get inserted after this line
+UPEX4CmacrosUPEX4C = 1
 
 # Create domain and host lists for relay control
 # '@' refers to 'the name of the local host'
 
 # List of domains considered local for exim. Domains not listed here
 # need to be deliverable remotely.
-.ifndef MAIN_LOCAL_DOMAINS
-MAIN_LOCAL_DOMAINS = DEBCONFlocal_domainsDEBCONF
-.endif
 domainlist local_domains = MAIN_LOCAL_DOMAINS
 
 # List of recipient domains to relay _to_. Use this list if you're -
 # for example - fallback MX or mail gateway for domains.
-.ifndef MAIN_RELAY_TO_DOMAINS
-MAIN_RELAY_TO_DOMAINS = DEBCONFrelay_domainsDEBCONF
-.endif
 domainlist relay_to_domains = MAIN_RELAY_TO_DOMAINS
 
 # List of sender networks (IP addresses) to _unconditionally_ relay
 # _for_. If you intend to be SMTP AUTH server, you do not need to enter
 # anything here.
-.ifndef MAIN_RELAY_NETS
-MAIN_RELAY_NETS = DEBCONFrelay_netsDEBCONF
+hostlist relay_from_hosts = MAIN_RELAY_NETS
+
+
+# Decide which domain to use to add to all unqualified addresses.
+# If MAIN_PRIMARY_HOSTNAME_AS_QUALIFY_DOMAIN is defined, the primary
+# hostname is used. If not, but MAIN_QUALIFY_DOMAIN is set, the value
+# of MAIN_QUALIFY_DOMAIN is used. If both macros are not defined,
+# the first line of /etc/mailname is used.
+.ifndef MAIN_PRIMARY_HOSTNAME_AS_QUALIFY_DOMAIN
+.ifndef MAIN_QUALIFY_DOMAIN
+qualify_domain = ETC_MAILNAME
+.else
+qualify_domain = MAIN_QUALIFY_DOMAIN
 .endif
-hostlist relay_from_hosts = 127.0.0.1 : ::::1 : MAIN_RELAY_NETS
-
-
-# Specify the domain you want to be added to all unqualified addresses
-# here. Unqualified addresses are accepted only from local callers by
-# default. The recipient_unqualified_hosts option can be used to permit
-# unqualified addresses from remote sources.
-# If qualify_domain is not set, the primary_hostname value is used for
-# qualification.
-# The ifdef bracket makes sure that an empty debconf value is correctly
-# translated to "unset".
-.ifdef DC_visiblename
-qualify_domain = DC_visiblename
-.endif
-
-# only used for satellite-system
-.ifndef DCreadhost
-DCreadhost = DEBCONFreadhostDEBCONF
-.endif
-
-#for satellite and smarthost-systems
-.ifndef DCsmarthost
-DCsmarthost = DEBCONFsmarthostDEBCONF
 .endif
 
 # listen on all all interfaces?
 .ifdef MAIN_LOCAL_INTERFACES
 local_interfaces = MAIN_LOCAL_INTERFACES
-.else
-DEBCONFlistenonpublicDEBCONF
 .endif
 
 .ifndef LOCAL_DELIVERY
 # The default transport, set in /etc/exim4/update-exim4.conf.conf,
 # defaulting to mail_spool. See CONFDIR/conf.d/transport/ for possibilities
-LOCAL_DELIVERY=DEBCONFlocaldeliveryDEBCONF
+LOCAL_DELIVERY=mail_spool
 .endif
 
 # The gecos field in /etc/passwd holds not only the name. see passwd(5).
 gecos_pattern = ^([^,:]*)
 gecos_name = $1
 
-
-# define a macro DCconfig_smarthost, DCconfig_satellite, etc. we need this
-# for .ifdef ... .endif
-.ifndef DCconfig_satellite
-.ifndef DCconfig_internet
-.ifndef DCconfig_local
-.ifndef DCconfig_smarthost
-DCconfig_DEBCONFconfigtypeDEBCONF = 1
-.endif
-.endif
-.endif
-.endif
-
-
 # define macros to be used in acl/30_exim4-config_check_rcpt to check
-# recipient local parts for strange characters
+# recipient local parts for strange characters.
 
-# This macro is used to check local parts of recipients in local
-# domains.  It blocks local parts that begin with a dot or contain a
-# quite broad range of non-alphanumeric characters.
+# This macro definition really should be in
+# acl/30_exim4-config_check_rcpt but cannot be there due to
+# http://www.exim.org/bugzilla/show_bug.cgi?id=101 as of exim 4.62.
+
+# These macros are documented in acl/30_exim4-config_check_rcpt,
+# can be changed here or overridden by a locally added configuration
+# file as described in README.Debian chapter 2.1.2
+
 .ifndef CHECK_RCPT_LOCAL_LOCALPARTS
-CHECK_RCPT_LOCAL_LOCALPARTS = ^[.] : ^.*[@%!/|\'`#&?]
+CHECK_RCPT_LOCAL_LOCALPARTS = ^[.] : ^.*[@%!/|`#&?]
 .endif
 
-# This macro is used to check local parts of recipients in non-local
-# domains. It thus allows your own users to send outgoing messages to
-# sites that use slashes and vertical bars in their local parts. It blocks
-# local parts that begin with a dot, slash, or vertical bar, but allows
-# these characters within the local part. However, the sequence /../ is
-# barred. The use of some other non-alphanumeric characters is blocked.
-# The motivation here is to prevent your users (or your users' viruses)
-# from mounting certain kinds of attack on remote sites.
 .ifndef CHECK_RCPT_REMOTE_LOCALPARTS
-CHECK_RCPT_REMOTE_LOCALPARTS = ^[./|] : ^.*[@%!\'`#&?] : ^.*/\\.\\./
+CHECK_RCPT_REMOTE_LOCALPARTS = ^[./|] : ^.*[@%!`#&?] : ^.*/\\.\\./
+.endif
+
+# always log tls_peerdn as we use TLS for outgoing connects by default
+.ifndef MAIN_LOG_SELECTOR
+MAIN_LOG_SELECTOR = +tls_peerdn
 .endif
 #####################################################
 ### end main/01_exim4-config_listmacrosdefs
@@ -156,6 +110,15 @@ CHECK_RCPT_REMOTE_LOCALPARTS = ^[./|] : ^.*[@%!\'`#&?] : ^.*/\\.\\./
 
 ### main/02_exim4-config_options
 #################################
+
+
+# Defines the access control list that is run when an
+# SMTP MAIL command is received.
+#
+.ifndef MAIN_ACL_CHECK_MAIL
+MAIN_ACL_CHECK_MAIL = acl_check_mail
+.endif
+acl_smtp_mail = MAIN_ACL_CHECK_MAIL
 
 
 # Defines the access control list that is run when an
@@ -183,6 +146,25 @@ message_size_limit = MESSAGE_SIZE_LIMIT
 .endif
 
 
+# If you are running exim4-daemon-heavy or a custom version of Exim that
+# was compiled with the content-scanning extension, you can cause incoming
+# messages to be automatically scanned for viruses. You have to modify the
+# configuration in two places to set this up. The first of them is here,
+# where you define the interface to your scanner. This example is typical
+# for ClamAV; see the manual for details of what to set for other virus
+# scanners. The second modification is in the acl_check_data access
+# control list.
+
+# av_scanner = clamd:/tmp/clamd
+
+
+# For spam scanning, there is a similar option that defines the interface to
+# SpamAssassin. You do not need to set this if you are using the default, which
+# is shown in this commented example. As for virus scanning, you must also
+# modify the acl_check_data access control list to enable spam scanning.
+
+# spamd_address = 127.0.0.1 783
+
 # Domain used to qualify unqualified recipient addresses
 # If this option is not set, the qualify_domain value is used.
 # qualify_recipient = <value of qualify_domain>
@@ -194,6 +176,8 @@ message_size_limit = MESSAGE_SIZE_LIMIT
 # in the default config since it is seldomly used and frequently abused.
 # Domain literal support also needs a special router, which is automatically
 # enabled if you use the enable macro MAIN_ALLOW_DOMAIN_LITERALS.
+# Additionally, you might want to make your local IP addresses (or @[])
+# local domains.
 .ifdef MAIN_ALLOW_DOMAIN_LITERALS
 allow_domain_literals
 .endif
@@ -212,22 +196,35 @@ host_lookup = MAIN_HOST_LOOKUP
 
 # In a minimaldns setup, update-exim4.conf guesses the hostname and
 # dumps it here to avoid DNS lookups being done at Exim run time.
-DEBCONF_hardcode_primary_hostname_DEBCONF
+.ifdef MAIN_HARDCODE_PRIMARY_HOSTNAME
+primary_hostname = MAIN_HARDCODE_PRIMARY_HOSTNAME
+.endif
 
-
-# Do RFC 1413 (ident) callbacks for incoming SMTP calls. The default
-# is to do lookups for all hosts with a timeout of 30 seconds.
-# The options can be used to limit the hosts to which these calls are
-# made, and/or change the timeout that is used. If the timeout is zero,
-# no RFC 1413 calls are made. RFC 1413 calls are cheap and can provide
-# useful information for tracing problem messages, but some hosts and
-# firewalls are misconfigured to drop the requests instead of either
-# answering or rejecting them. This can result in timeouts, leading to
-# delays on starting up an SMTP session and to strange behavior in
-# settings where SMTP callouts are used.
+# The settings below, which are actually the same as the defaults in the
+# code, cause Exim to make RFC 1413 (ident) callbacks for all incoming SMTP
+# calls. You can limit the hosts to which these calls are made, and/or change
+# the timeout that is used. If you set the timeout to zero, all RFC 1413 calls
+# are disabled. RFC 1413 calls are cheap and can provide useful information
+# for tracing problem messages, but some hosts and firewalls are
+# misconfigured to drop the requests instead of either answering or
+# rejecting them. This can result in a timeout instead of an immediate refused
+# connection, leading to delays on starting up SMTP sessions. (The default was
+# reduced from 30s to 5s for release 4.61.)
 # rfc1413_hosts = *
-# rfc1413_query_timeout = 30s
+# rfc1413_query_timeout = 5s
 
+# When using an external relay tester (such as rt.njabl.org and/or the
+# currently defunct relay-test.mail-abuse.org, the test may be aborted
+# since exim complains about "too many nonmail commands". If you want
+# the test to complete, add the host from where "your" relay tester
+# connects from to the MAIN_SMTP_ACCEPT_MAX_NOMAIL_HOSTS macro.
+# Please note that a non-empty setting may cause extra DNS lookups to
+# happen, which is the reason why this option is commented out in the
+# default settings.
+# MAIN_SMTP_ACCEPT_MAX_NOMAIL_HOSTS = !rt.njabl.org
+.ifdef MAIN_SMTP_ACCEPT_MAX_NOMAIL_HOSTS
+smtp_accept_max_nonmail_hosts = MAIN_SMTP_ACCEPT_MAX_NOMAIL_HOSTS
+.endif
 
 # By default, exim forces a Sender: header containing the local
 # account name at the local host name in all locally submitted messages
@@ -307,16 +304,8 @@ trusted_groups = MAIN_TRUSTED_GROUPS
 # admin_groups = <unset>
 
 
-# customize logging. See spec.txt 48.15.
-# If you want to debug, it is probably a good idea to set this to
-# "+all -subject -arguments".
-# If you use TLS, it might be a good idea to set "+tls_cipher
-# +tls_peerdn".
-# log_selector = <unset>
-
-
 # SMTP Banner. The example includes the Debian version in the SMTP dialog
-# MAIN_SMTP_BANNER = "${primary_hostname} ESMTP Exim ${version_number} (Debian package DEBCONFpackageversionDEBCONF) ${tod_full}"
+# MAIN_SMTP_BANNER = "${primary_hostname} ESMTP Exim ${version_number} (Debian package MAIN_PACKAGE_VERSION) ${tod_full}"
 # smtp_banner = $smtp_active_hostname ESMTP Exim $version_number $tod_full
 #####################################################
 ### end main/02_exim4-config_options
@@ -328,9 +317,8 @@ trusted_groups = MAIN_TRUSTED_GROUPS
 ### main/03_exim4-config_tlsoptions
 #################################
 
-# TLS/SSL configuration.
+# TLS/SSL configuration for exim as an SMTP server.
 # See /usr/share/doc/exim4-base/README.Debian.gz for explanations.
-
 
 .ifdef MAIN_TLS_ENABLE
 # Defines what hosts to 'advertise' STARTTLS functionality to. The
@@ -404,6 +392,22 @@ tls_try_verify_hosts = MAIN_TLS_TRY_VERIFY_HOSTS
 ### end main/03_exim4-config_tlsoptions
 #####################################################
 #####################################################
+### main/90_exim4-config_log_selector
+#####################################################
+
+### main/90_exim4-config_log_selector
+#################################
+
+# uncomment this for debugging
+# MAIN_LOG_SELECTOR == MAIN_LOG_SELECTOR +all -subject -arguments
+
+.ifdef MAIN_LOG_SELECTOR
+log_selector = MAIN_LOG_SELECTOR
+.endif
+#####################################################
+### end main/90_exim4-config_log_selector
+#####################################################
+#####################################################
 ### acl/00_exim4-config_header
 #####################################################
 
@@ -418,34 +422,36 @@ begin acl
 ### end acl/00_exim4-config_header
 #####################################################
 #####################################################
-### acl/20_exim4-config_whitelist_local_deny
+### acl/20_exim4-config_local_deny_exceptions
 #####################################################
 
-### acl/20_exim4-config_whitelist_local_deny
+### acl/20_exim4-config_local_deny_exceptions
 #################################
 
 # This is used to determine whitelisted senders and hosts.
-# It checks for CONFDIR/local_host_whitelist and
-# CONFDIR/local_sender_whitelist.
+# It checks for CONFDIR/host_local_deny_exceptions and
+# CONFDIR/sender_local_deny_exceptions.
 #
 # It is meant to be used from some other acl entry.
 #
-# For example,
-# deny
-#   message = local blacklist example
-#   !acl = acl_whitelist
-#   dnslist = some.dns.list.example
-# will allow messages with envelope sender listed in local_sender_whitelist
-# or messages coming in from hosts listed in local_host_whitelist to be
-# accepted even if the delivering host is listed in the dns list.
-#
-# Whitelisting can also be configured by including negative items in the
-# black list. See /usr/share/doc/exim4-config/default_acl for details.
+# See exim4-config_files(5) for details.
 #
 # If the files do not exist, the white list never matches, which is
 # the desired behaviour.
+#
+# The old file names CONFDIR/local_host_whitelist and
+# CONFDIR/local_sender_whitelist will continue to be honored for a
+# transition period. Their use is deprecated.
 
-acl_whitelist_local_deny:
+acl_local_deny_exceptions:
+  accept
+    hosts = ${if exists{CONFDIR/host_local_deny_exceptions}\
+                 {CONFDIR/host_local_deny_exceptions}\
+                 {}}
+  accept
+    senders = ${if exists{CONFDIR/sender_local_deny_exceptions}\
+                   {CONFDIR/sender_local_deny_exceptions}\
+                   {}}
   accept
     hosts = ${if exists{CONFDIR/local_host_whitelist}\
                  {CONFDIR/local_host_whitelist}\
@@ -459,11 +465,38 @@ acl_whitelist_local_deny:
   # modify this file. If you do it like we suggest, you'll end up with
   # a small performance penalty since there is an additional file being
   # accessed. This doesn't happen if you leave the macro unset.
+  .ifdef LOCAL_DENY_EXCEPTIONS_LOCAL_ACL_FILE
+  .include LOCAL_DENY_EXCEPTIONS_LOCAL_ACL_FILE
+  .endif
+
+  # this is still supported for a transition period and is deprecated.
   .ifdef WHITELIST_LOCAL_DENY_LOCAL_ACL_FILE
   .include WHITELIST_LOCAL_DENY_LOCAL_ACL_FILE
   .endif
 #####################################################
-### end acl/20_exim4-config_whitelist_local_deny
+### end acl/20_exim4-config_local_deny_exceptions
+#####################################################
+#####################################################
+### acl/30_exim4-config_check_mail
+#####################################################
+
+### acl/30_exim4-config_check_mail
+#################################
+
+# This access control list is used for every MAIL command in an incoming
+# SMTP message. The tests are run in order until the address is either
+# accepted or denied.
+#
+acl_check_mail:
+  .ifdef CHECK_MAIL_HELO_ISSUED
+  deny
+    message = no HELO given before MAIL command
+    condition = ${if def:sender_helo_name {no}{yes}}
+  .endif
+
+  accept
+#####################################################
+### end acl/30_exim4-config_check_mail
 #####################################################
 #####################################################
 ### acl/30_exim4-config_check_rcpt
@@ -477,16 +510,88 @@ acl_whitelist_local_deny:
 # accepted or denied.
 #
 acl_check_rcpt:
+  # greylistd(8) configuration follows.
+  # This statement has been added by "greylistd-setup-exim4",
+  # and can be removed by running "greylistd-setup-exim4 remove".
+  # Any changes you make here will then be lost.
+  #
+  # Perform greylisting on incoming messages from remote hosts.
+  # We do NOT greylist messages with no envelope sender, because that
+  # would conflict with remote hosts doing callback verifications, and we
+  # might not be able to send mail to such hosts for a while (until the
+  # callback attempt is no longer greylisted, and then some).
+  #
+  # We also check the local whitelist to avoid greylisting mail from
+  # hosts that are expected to forward mail here (such as backup MX hosts,
+  # list servers, etc).
+  #
+  # Because the recipient address has not yet been verified, we do so
+  # now and skip this statement for non-existing recipients.  This is
+  # in order to allow for a 550 (reject) response below.  If the delivery
+  # happens over a remote transport (such as "smtp"), recipient callout
+  # verification is performed, with the original sender intact.
+  #
+  defer
+    message        = $sender_host_address is not yet authorized to deliver \
+                     mail from <$sender_address> to <$local_part@$domain>. \
+                     Please try later.
+    log_message    = greylisted.
+    !senders       = :
+    !hosts         = : +relay_from_hosts : \
+                     ${if exists {/etc/greylistd/whitelist-hosts}\
+                                 {/etc/greylistd/whitelist-hosts}{}} : \
+                     ${if exists {/var/lib/greylistd/whitelist-hosts}\
+                                 {/var/lib/greylistd/whitelist-hosts}{}}
+    !authenticated = *
+    !acl           = acl_local_deny_exceptions
+    domains        = +local_domains : +relay_to_domains
+    verify         = recipient/callout=20s,use_sender,defer_ok
+    condition      = ${readsocket{/var/run/greylistd/socket}\
+                                 {--grey \
+                                  $sender_host_address \
+                                  $sender_address \
+                                  $local_part@$domain}\
+                                 {5s}{}{false}}
+
+ # Deny if blacklisted by greylist
+ deny
+   message = $sender_host_address is blacklisted from delivering \
+                     mail from <$sender_address> to <$local_part@$domain>.
+   log_message = blacklisted.
+   !senders        = :
+   !authenticated = *
+   verify         = recipient/callout=20s,use_sender,defer_ok
+   condition      = ${readsocket{/var/run/greylistd/socket}\
+                                 {--black \
+                                  $sender_host_address \
+                                  $sender_address \
+                                  $local_part@$domain}\
+                                 {5s}{}{false}}
+
+
+
+ # Deny if blacklisted by greylist
+ deny
+   message = $sender_host_address is blacklisted from delivering \
+                     mail from <$sender_address> to <$local_part@$domain>.
+   log_message = blacklisted.
+   !senders        = :
+   !authenticated = *
+   verify         = recipient/callout=20s,use_sender,defer_ok
+   condition      = ${readsocket{/var/run/greylistd/socket}\
+                                 {--black \
+                                  $sender_host_address \
+                                  $sender_address \
+                                  $local_part@$domain}\
+                                 {5s}{}{false}}
+
+
+
+
   # Accept if the source is local SMTP (i.e. not over TCP/IP). We do this by
   # testing for an empty sending host field.
   accept
     hosts = :
-
-
-  # Add missing Date and Message-ID header for relayed messages
-  warn
-    hosts = +relay_from_hosts
-    control = submission/sender_retain
 
 
   # The following section of the ACL is concerned with local parts that contain
@@ -508,12 +613,24 @@ acl_check_rcpt:
   # contain slashes. A pipe symbol can also be troublesome if the local part is
   # incorporated unthinkingly into a shell command line.
   #
+  # These ACL components will block recipient addresses that are valid
+  # from an RFC2822 point of view. We chose to have them blocked by
+  # default for security reasons.
+  #
+  # If you feel that your site should have less strict recipient
+  # checking, please feel free to change the default values of the macros
+  # defined in main/01_exim4-config_listmacrosdefs or override them from a
+  # local configuration file.
+  #
   # Two different rules are used. The first one has a quite strict
   # default, and is applied to messages that are addressed to one of the
   # local domains handled by this host.
-  # If you have local accounts that include strange characters, you can
-  # use the macro provided to change the ACL range or to disable the
-  # check completely.
+
+  # The default value of CHECK_RCPT_LOCAL_LOCALPARTS is defined in
+  # main/01_exim4-config_listmacrosdefs:
+  # CHECK_RCPT_LOCAL_LOCALPARTS = ^[.] : ^.*[@%!/|`#&?]
+  # This blocks local parts that begin with a dot or contain a quite
+  # broad range of non-alphanumeric characters.
   .ifdef CHECK_RCPT_LOCAL_LOCALPARTS
   deny
     domains = +local_domains
@@ -524,6 +641,20 @@ acl_check_rcpt:
 
   # The second rule applies to all other domains, and its default is
   # considerably less strict.
+
+  # The default value of CHECK_RCPT_REMOTE_LOCALPARTS is defined in
+  # main/01_exim4-config_listmacrosdefs:
+  # CHECK_RCPT_REMOTE_LOCALPARTS = ^[./|] : ^.*[@%!`#&?] : ^.*/\\.\\./
+
+  # It allows local users to send outgoing messages to sites
+  # that use slashes and vertical bars in their local parts. It blocks
+  # local parts that begin with a dot, slash, or vertical bar, but allows
+  # these characters within the local part. However, the sequence /../ is
+  # barred. The use of some other non-alphanumeric characters is blocked.
+  # Single quotes might probably be dangerous as well, but they're
+  # allowed by the default regexps to avoid rejecting mails to Ireland.
+  # The motivation here is to prevent local users (or local users' malware)
+  # from mounting certain kinds of attack on remote sites.
   .ifdef CHECK_RCPT_REMOTE_LOCALPARTS
   deny
     domains = !+local_domains
@@ -544,16 +675,106 @@ acl_check_rcpt:
     domains = +local_domains : +relay_to_domains
 
 
-  # deny bad senders (envelope sender)
+  # Deny unless the sender address can be verified.
+  #
+  # This is disabled by default so that DNSless systems don't break. If
+  # your system can do DNS lookups without delay or cost, you might want
+  # to enable this feature.
+  #
+  # This feature does not work in smarthost and satellite setups as
+  # with these setups all domains pass verification. See spec.txt chapter
+  # 39.31 with the added information that a smarthost/satellite setup
+  # routes all non-local e-mail to the smarthost.
+  .ifdef CHECK_RCPT_VERIFY_SENDER
+  deny
+    message = Sender verification failed
+    !acl = acl_local_deny_exceptions
+    !verify = sender
+  .endif
+
+  # Verify senders listed in local_sender_callout with a callout.
+  #
+  # In smarthost and satellite setups, this causes the callout to be
+  # done to the smarthost. Verification will thus only be reliable if the
+  # smarthost does reject illegal addresses in the SMTP dialog.
+  deny
+    !acl = acl_local_deny_exceptions
+    senders = ${if exists{CONFDIR/local_sender_callout}\
+                         {CONFDIR/local_sender_callout}\
+                   {}}
+    !verify = sender/callout
+
+
+  # Accept if the message comes from one of the hosts for which we are an
+  # outgoing relay. It is assumed that such hosts are most likely to be MUAs,
+  # so we set control=submission to make Exim treat the message as a
+  # submission. It will fix up various errors in the message, for example, the
+  # lack of a Date: header line. If you are actually relaying out out from
+  # MTAs, you may want to disable this. If you are handling both relaying from
+  # MTAs and submissions from MUAs you should probably split them into two
+  # lists, and handle them differently.
+
+  # Recipient verification is omitted here, because in many cases the clients
+  # are dumb MUAs that don't cope well with SMTP error responses. If you are
+  # actually relaying out from MTAs, you should probably add recipient
+  # verification here.
+
+  # Note that, by putting this test before any DNS black list checks, you will
+  # always accept from these hosts, even if they end up on a black list. The
+  # assumption is that they are your friends, and if they get onto black
+  # list, it is a mistake.
+  accept
+    hosts = +relay_from_hosts
+    control = submission/sender_retain
+
+
+  # Accept if the message arrived over an authenticated connection, from
+  # any host. Again, these messages are usually from MUAs, so recipient
+  # verification is omitted, and submission mode is set. And again, we do this
+  # check before any black list tests.
+  accept
+    authenticated = *
+    control = submission/sender_retain
+
+
+  # Insist that any other recipient address that we accept is either in one of
+  # our local domains, or is in a domain for which we explicitly allow
+  # relaying. Any other domain is rejected as being unacceptable for relaying.
+  require
+    message = relay not permitted
+    domains = +local_domains : +relay_to_domains
+
+
+  # We also require all accepted addresses to be verifiable. This check will
+  # do local part verification for local domains, but only check the domain
+  # for remote domains.
+  require
+    verify = recipient
+
+
+  # Verify recipients listed in local_rcpt_callout with a callout.
+  # This is especially handy for forwarding MX hosts (secondary MX or
+  # mail hubs) of domains that receive a lot of spam to non-existent
+  # addresses.  The only way to check local parts for remote relay
+  # domains is to use a callout (add /callout), but please read the
+  # documentation about callouts before doing this.
+  deny
+    !acl = acl_local_deny_exceptions
+    recipients = ${if exists{CONFDIR/local_rcpt_callout}\
+                            {CONFDIR/local_rcpt_callout}\
+                      {}}
+    !verify = recipient/callout
+
+
   # CONFDIR/local_sender_blacklist holds a list of envelope senders that
   # should have their access denied to the local host. Incoming messages
   # with one of these senders are rejected at RCPT time.
   #
   # The explicit white lists are honored as well as negative items in
-  # the black list. See /usr/share/doc/exim4-config/default_acl for details.
+  # the black list. See exim4-config_files(5) for details.
   deny
     message = sender envelope address $sender_address is locally blacklisted here. If you think this is wrong, get in touch with postmaster
-    !acl = acl_whitelist_local_deny
+    !acl = acl_local_deny_exceptions
     senders = ${if exists{CONFDIR/local_sender_blacklist}\
                    {CONFDIR/local_sender_blacklist}\
                    {}}
@@ -569,43 +790,10 @@ acl_check_rcpt:
   # the black list. See /usr/share/doc/exim4-config/default_acl for details.
   deny
     message = sender IP address $sender_host_address is locally blacklisted here. If you think this is wrong, get in touch with postmaster
-    !acl = acl_whitelist_local_deny
+    !acl = acl_local_deny_exceptions
     hosts = ${if exists{CONFDIR/local_host_blacklist}\
                  {CONFDIR/local_host_blacklist}\
                  {}}
-
-
-  # Deny unless the sender address can be verified.
-  #
-  # This is disabled by default so that DNSless systems don't break. If
-  # your system can do DNS lookups without delay or cost, you might want
-  # to enable this feature.
-  .ifdef CHECK_RCPT_VERIFY_SENDER
-  deny
-    message = Sender verification failed
-    !acl = acl_whitelist_local_deny
-    !verify = sender
-  .endif
-
-  # For some sender domains, we do callout to verify if a sender
-  # exists.
-  deny
-    !acl = acl_whitelist_local_deny
-    senders = ${if exists{CONFDIR/local_sender_callout}\
-                         {CONFDIR/local_sender_callout}\
-                   {}}
-    !verify = sender/callout
-
-
-  # For some recipient domains, we do callout to verify if a recipient
-  # exists. This is especially handy for customers that receive a lot of
-  # spam to non-existent addresses.
-  deny
-    !acl = acl_whitelist_local_deny
-    recipients = ${if exists{CONFDIR/local_rcpt_callout}\
-                            {CONFDIR/local_rcpt_callout}\
-                      {}}
-    !verify = recipient/callout
 
 
   # Warn if the sender host does not have valid reverse DNS.
@@ -624,6 +812,48 @@ acl_check_rcpt:
   .endif
 
 
+  # Use spfquery to perform a pair of SPF checks (for details, see
+  # http://www.openspf.org/)
+  #
+  # This is quite costly in terms of DNS lookups (~6 lookups per mail).  Do not
+  # enable if that's an issue.  Also note that if you enable this, you must
+  # install "libmail-spf-query-perl" which provides the spfquery command.
+  # Missing libmail-spf-query-perl will trigger the "Unexpected error in
+  # SPF check" warning.
+  .ifdef CHECK_RCPT_SPF
+  deny
+    message = [SPF] $sender_host_address is not allowed to send mail from ${if def:sender_address_domain {$sender_address_domain}{$sender_helo_name}}.  \
+              Please see http://www.openspf.org/Why?scope=${if def:sender_address_domain {mfrom}{helo}};identity=${if def:sender_address_domain {$sender_address}{$sender_helo_name}};ip=$sender_host_address
+    log_message = SPF check failed.
+    condition = ${run{/usr/bin/spfquery --ip \"$sender_host_address\" --mail-from \"$sender_address\" --helo \"$sender_helo_name\"}\
+                     {no}{${if eq {$runrc}{1}{yes}{no}}}}
+
+  defer
+    message = Temporary DNS error while checking SPF record.  Try again later.
+    condition = ${if eq {$runrc}{5}{yes}{no}}
+
+  warn
+    message = Received-SPF: ${if eq {$runrc}{0}{pass}{${if eq {$runrc}{2}{softfail}\
+                                 {${if eq {$runrc}{3}{neutral}{${if eq {$runrc}{4}{unknown}{${if eq {$runrc}{6}{none}{error}}}}}}}}}}
+    condition = ${if <={$runrc}{6}{yes}{no}}
+
+  warn
+    log_message = Unexpected error in SPF check.
+    condition = ${if >{$runrc}{6}{yes}{no}}
+
+  # Support for best-guess (see http://www.openspf.org/developers-guide.html)
+  warn
+    message = X-SPF-Guess: ${run{/usr/bin/spfquery --ip \"$sender_host_address\" --mail-from \"$sender_address\" \ --helo \"$sender_helo_name\" --guess true}\
+                                {pass}{${if eq {$runrc}{2}{softfail}{${if eq {$runrc}{3}{neutral}{${if eq {$runrc}{4}{unknown}\
+                                {${if eq {$runrc}{6}{none}{error}}}}}}}}}}
+    condition = ${if <={$runrc}{6}{yes}{no}}
+
+  defer
+    message = Temporary DNS error while checking SPF record.  Try again later.
+    condition = ${if eq {$runrc}{5}{yes}{no}}
+  .endif
+
+
   # Check against classic DNS "black" lists (DNSBLs) which list
   # sender IP addresses
   .ifdef CHECK_RCPT_IP_DNSBLS
@@ -635,8 +865,12 @@ acl_check_rcpt:
 
 
   # Check against DNSBLs which list sender domains, with an option to locally
-  # whitelist certain domains that might be blacklisted. If you want one
-  # blacklist per domain, you need to replicate the stanza for each DNSBL.
+  # whitelist certain domains that might be blacklisted.
+  #
+  # Note: If you define CHECK_RCPT_DOMAIN_DNSBLS, you must append
+  # "/$sender_address_domain" after each domain.  For example:
+  # CHECK_RCPT_DOMAIN_DNSBLS = rhsbl.foo.org/$sender_address_domain \
+  #                            : rhsbl.bar.org/$sender_address_domain
   .ifdef CHECK_RCPT_DOMAIN_DNSBLS
   warn
     message = X-Warning: $sender_address_domain is listed at $dnslist_domain ($dnslist_value: $dnslist_text)
@@ -644,7 +878,7 @@ acl_check_rcpt:
     !senders = ${if exists{CONFDIR/local_domain_dnsbl_whitelist}\
                     {CONFDIR/local_domain_dnsbl_whitelist}\
                     {}}
-    dnslists = CHECK_RCPT_DOMAIN_DNSBLS/$sender_address_domain
+    dnslists = CHECK_RCPT_DOMAIN_DNSBLS
   .endif
 
 
@@ -657,65 +891,31 @@ acl_check_rcpt:
   .endif
 
 
-  # Accept if the address is in a local domain, but only if the recipient can
-  # be verified. Otherwise deny. The "endpass" line is the border between
-  # passing on to the next ACL statement (if tests above it fail) or denying
-  # access (if tests below it fail).
+  #############################################################################
+  # This check is commented out because it is recognized that not every
+  # sysadmin will want to do it. If you enable it, the check performs
+  # Client SMTP Authorization (csa) checks on the sending host. These checks
+  # do DNS lookups for SRV records. The CSA proposal is currently (May 2005)
+  # an Internet draft. You can, of course, add additional conditions to this
+  # ACL statement to restrict the CSA checks to certain hosts only.
   #
-  accept
-    domains = +local_domains
-    endpass
-    message = unknown user
-    verify = recipient
+  # require verify = csa
+  #############################################################################
 
 
-  # Accept if the address is in a domain for which we are relaying, but again,
-  # only if the recipient can be verified.
-  #
-  # If you want to use the more conservative "unknown user" error
-  # message in case of a non-existing local part, you might want to
-  # set CHECK_RCPT_GIVE_UNKNOWN_USER. However, this might reveal
-  # local information, which is the cause for it not being enabled by
-  # default.
+  # Accept if the address is in a domain for which we are an incoming relay,
+  # but again, only if the recipient can be verified.
+
   accept
     domains = +relay_to_domains
     endpass
-    .ifdef CHECK_RCPT_GIVE_UNKNOWN_USER
-    message = ${if eq{$acl_verify_message}{Unrouteable address}{unknown user}{$acl_verify_message}}
-    .else
-    message = unrouteable address
-    .endif
     verify = recipient
 
 
-  ############
-  # If control reaches this point, the domain is neither in +local_domains
-  # nor in +relay_to_domains.
-  ############
+  # At this point, the address has passed all the checks that have been
+  # configured, so we accept it unconditionally.
 
-  # Accept if the message comes from one of the hosts for which we are an
-  # outgoing relay. Recipient verification is omitted here, because in many
-  # cases the clients are dumb MUAs that don't cope well with SMTP error
-  # responses. If you are actually relaying out from MTAs, you should probably
-  # add recipient verification here.
-  #
   accept
-    hosts = +relay_from_hosts
-
-
-  # Accept if the message arrived over an authenticated connection, from
-  # any host. Again, these messages are usually from MUAs, so recipient
-  # verification is omitted.
-  #
-  accept
-    authenticated = *
-
-
-  # Reaching the end of the ACL causes a "deny", but we might as well give
-  # an explicit message.
-  #
-  deny
-    message = relay not permitted
 #####################################################
 ### end acl/30_exim4-config_check_rcpt
 #####################################################
@@ -726,7 +926,75 @@ acl_check_rcpt:
 ### acl/40_exim4-config_check_data
 #################################
 
+# This ACL is used after the contents of a message have been received. This
+# is the ACL in which you can test a message's headers or body, and in
+# particular, this is where you can invoke external virus or spam scanners.
+
 acl_check_data:
+  # greylistd(8) configuration follows.
+  # This statement has been added by "greylistd-setup-exim4",
+  # and can be removed by running "greylistd-setup-exim4 remove".
+  # Any changes you make here will then be lost.
+  #
+  # Perform greylisting on incoming messages with no envelope sender here.
+  # We did not subject these to greylisting after RCPT TO:, because that
+  # would interfere with remote hosts doing sender callout verifications.
+  #
+  # Because there is no sender address, we supply only two data items:
+  #  - The remote host address
+  #  - The recipient address (normally, bounces have only one recipient)
+  #
+  # We also check the local whitelist to avoid greylisting mail from
+  # hosts that are expected to forward mail here (such as backup MX hosts,
+  # list servers, etc).
+  #
+  defer
+    message        = $sender_host_address is not yet authorized to deliver \
+                     mail from <$sender_address> to <$recipients>. \
+                     Please try later.
+    log_message    = greylisted.
+    senders        = :
+    !hosts         = : +relay_from_hosts : \
+                     ${if exists {/etc/greylistd/whitelist-hosts}\
+                                 {/etc/greylistd/whitelist-hosts}{}} : \
+                     ${if exists {/var/lib/greylistd/whitelist-hosts}\
+                                 {/var/lib/greylistd/whitelist-hosts}{}}
+    !authenticated = *
+    !acl           = acl_local_deny_exceptions
+    condition      = ${readsocket{/var/run/greylistd/socket}\
+                                 {--grey \
+                                  $sender_host_address \
+                                  $recipients}\
+                                  {5s}{}{false}}
+
+ # Deny if blacklisted by greylist
+ deny
+   message = $sender_host_address is blacklisted from delivering \
+                     mail from <$sender_address> to <$recipients>.
+   log_message = blacklisted.
+   !senders        = :
+   !authenticated = *
+   condition      = ${readsocket{/var/run/greylistd/socket}\
+                                 {--black \
+                                  $sender_host_address \
+                                  $recipients}\
+                                  {5s}{}{false}}
+
+
+ # Deny if blacklisted by greylist
+ deny
+   message = $sender_host_address is blacklisted from delivering \
+                     mail from <$sender_address> to <$recipients>.
+   log_message = blacklisted.
+   !senders        = :
+   !authenticated = *
+   condition      = ${readsocket{/var/run/greylistd/socket}\
+                                 {--black \
+                                  $sender_host_address \
+                                  $recipients}\
+                                  {5s}{}{false}}
+
+
 
   # Deny unless the address list headers are syntactically correct.
   #
@@ -734,7 +1002,7 @@ acl_check_data:
   .ifdef CHECK_DATA_VERIFY_HEADER_SYNTAX
   deny
     message = Message headers fail syntax check
-    !acl = acl_whitelist_local_deny
+    !acl = acl_local_deny_exceptions
     !verify = header_syntax
   .endif
 
@@ -744,9 +1012,42 @@ acl_check_data:
   .ifdef CHECK_DATA_VERIFY_HEADER_SENDER
   deny
     message = No verifiable sender address in message headers
-    !acl = acl_whitelist_local_deny
+    !acl = acl_local_deny_exceptions
     !verify = header_sender
   .endif
+
+
+  # Deny if the message contains malware. Before enabling this check, you
+  # must install a virus scanner and set the av_scanner option in the
+  # main configuration.
+  #
+  # exim4-daemon-heavy must be used for this section to work.
+  #
+  # deny
+  #   malware = *
+  #   message = This message was detected as possible malware ($malware_name).
+
+
+  # Add headers to a message if it is judged to be spam. Before enabling this,
+  # you must install SpamAssassin. You also need to set the spamd_address
+  # option in the main configuration.
+  #
+  # exim4-daemon-heavy must be used for this section to work.
+  #
+  # Please note that this is only suiteable as an example. There are
+  # multiple issues with this configuration method. For example, if you go
+  # this way, you'll give your spamassassin daemon write access to the
+  # entire exim spool which might be a security issue in case of a
+  # spamassassin exploit.
+  #
+  # See the exim docs and the exim wiki for more suitable examples.
+  #
+  # warn
+  #   spam = Debian-exim:true
+  #   message = X-Spam_score: $spam_score\n\
+  #             X-Spam_score_int: $spam_score_int\n\
+  #             X-Spam_bar: $spam_bar\n\
+  #             X-Spam_report: $spam_report
 
 
   # This hook allows you to hook in your own ACLs without having to
@@ -813,22 +1114,8 @@ domain_literal:
 
 # route specific domains manually.
 #
-# The most common application of this router is to handle relaying to nonlocal
-# domains that the local host is primary MX for. That means that local
-# information needs to be present for a domain to be handled correctly.
-#
-# That information is put into the optional file /etc/exim4/hubbed_hosts
-# which contains key-value pairs of domain pattern and route data.
-#
-# foo.example: internal.mail.example.com
-# bar.example: 192.168.183.3
-#
-# will cause mail for foo.example to be sent to the host
-# internal.mail.example (IP address derived from A record only), and
-# mail to bar.example to be sent to 192.168.183.3.
-#
-# If the file /etc/exim4/hubbed_hosts does not exist, this router is a
-# no-op.
+# see exim4-config_files(5) and spec.txt chapter 20.3 through 20.7 for
+# more detailed documentation.
 
 hubbed_hosts:
   debug_print = "R: hubbed_hosts for $domain"
@@ -949,10 +1236,16 @@ smarthost:
 # processing. This can be used to inform a user of a broken .forward
 # file, for example. The userforward router does this.
 
+COND_LOCAL_SUBMITTER = "\
+               ${if match_ip{$sender_host_address}{:@[]}\
+                    {1}{0}\
+		}"
+
 real_local:
   debug_print = "R: real_local for $local_part@$domain"
   driver = accept
   domains = +local_domains
+  condition = COND_LOCAL_SUBMITTER
   local_part_prefix = real-
   check_local_user
   transport = LOCAL_DELIVERY
@@ -979,14 +1272,11 @@ real_local:
 # of case. If you decide to handle /etc/aliases in a caseful way, you
 # need to make arrangements for a caseless postmaster.
 #
-# Piping to programs in /etc/aliases is disabled per default.
+# Delivery to arbitrary directories, files, and piping to programs in
+# /etc/aliases is disabled per default.
 # If that is a problem for you, see
 #   /usr/share/doc/exim4-base/README.Debian.gz
 # for explanation and some workarounds.
-#
-# Note that the transports listed below are the same as are used for
-# .forward files; you might want to set up different ones for pipe and
-# file deliveries from aliases.
 
 system_aliases:
   debug_print = "R: system_aliases for $local_part@$domain"
@@ -1054,11 +1344,12 @@ hub_user_smarthost:
 ### router/600_exim4-config_userforward
 #####################################################
 
-# router/600_exim4-config_userforward
+### router/600_exim4-config_userforward
 #################################
 
 # This router handles forwarding using traditional .forward files in users'
-# home directories and filtering with exim's builtin filter language. 
+# home directories. It also allows mail filtering with a forward file
+# starting with the string "# Exim filter" or "# Sieve filter".
 #
 # The no_verify setting means that this router is skipped when Exim is
 # verifying addresses. Similarly, no_expn means that this router is skipped if
@@ -1079,10 +1370,12 @@ userforward:
   domains = +local_domains
   check_local_user
   file = $home/.forward
+  require_files = $local_part:$home/.forward
   no_verify
   no_expn
   check_ancestor
   allow_filter
+  forbid_smtp_code = true
   directory_transport = address_directory
   file_transport = address_file
   pipe_transport = address_pipe
@@ -1146,11 +1439,48 @@ maildrop:
 ### end router/800_exim4-config_maildrop
 #####################################################
 #####################################################
+### router/850_exim4-config_lowuid
+#####################################################
+
+### router/850_exim4-config_lowuid
+#################################
+
+.ifndef FIRST_USER_ACCOUNT_UID
+FIRST_USER_ACCOUNT_UID = 0
+.endif
+
+.ifndef DEFAULT_SYSTEM_ACCOUNT_ALIAS
+DEFAULT_SYSTEM_ACCOUNT_ALIAS = :fail: no mail to system accounts
+.endif
+
+COND_SYSTEM_USER_AND_REMOTE_SUBMITTER = "\
+               ${if and{{! match_ip{$sender_host_address}{:@[]}}\
+                        {<{$local_user_uid}{FIRST_USER_ACCOUNT_UID}}}\
+                    {1}{0}\
+		}"
+
+lowuid_aliases:
+  debug_print = "R: lowuid_aliases for $local_part@$domain (UID $local_user_uid)"
+  check_local_user
+  driver = redirect
+  allow_fail
+  domains = +local_domains
+  condition = COND_SYSTEM_USER_AND_REMOTE_SUBMITTER
+  data = ${if exists{/etc/exim4/lowuid-aliases}\
+              {${lookup{$local_part}lsearch{/etc/exim4/lowuid-aliases}\
+              {$value}{DEFAULT_SYSTEM_ACCOUNT_ALIAS}}}{DEFAULT_SYSTEM_ACCOUNT_ALIAS}}
+#####################################################
+### end router/850_exim4-config_lowuid
+#####################################################
+#####################################################
 ### router/900_exim4-config_local_user
 #####################################################
 
 ### router/900_exim4-config_local_user
 #################################
+
+# This router matches local user mailboxes. If the router fails, the error
+# message is "Unknown user".
 
 local_user:
   debug_print = "R: local_user for $local_part@$domain"
@@ -1159,9 +1489,7 @@ local_user:
   check_local_user
   local_parts = ! root
   transport = LOCAL_DELIVERY
-
-
-
+  cannot_route_message = Unknown user
 #####################################################
 ### end router/900_exim4-config_local_user
 #####################################################
@@ -1206,6 +1534,24 @@ begin transports
 
 #####################################################
 ### end transport/00_exim4-config_header
+#####################################################
+#####################################################
+### transport/10_exim4-config_transport-macros
+#####################################################
+
+### transport/10_exim4-config_transport-macros
+#################################
+
+.ifdef HIDE_MAILNAME
+REMOTE_SMTP_HEADERS_REWRITE=*@+local_domains $1@DCreadhost frs : *@ETC_MAILNAME $1@DCreadhost frs
+REMOTE_SMTP_RETURN_PATH=${if match_domain{$sender_address_domain}{+local_domains}{${sender_address_local_part}@DCreadhost}{${if match_domain{$sender_address_domain}{ETC_MAILNAME}{${sender_address_local_part}@DCreadhost}fail}}}
+.endif
+
+.ifdef REMOTE_SMTP_HELO_FROM_DNS
+REMOTE_SMTP_HELO_DATA=${lookup dnsdb {ptr=$sending_ip_address}{$value}{$primary_hostname}}
+.endif
+#####################################################
+### end transport/10_exim4-config_transport-macros
 #####################################################
 #####################################################
 ### transport/30_exim4-config_address_file
@@ -1316,7 +1662,11 @@ maildir_home:
   mode = 0600
   .endif
   mode_fail_narrower = false
-
+  # This transport always chdirs to $home before trying to deliver. If
+  # $home is not accessible, this chdir fails and prevents delivery.
+  # If you are in a setup where home directories might not be
+  # accessible, uncomment the current_directory line below.
+  # current_directory = /
 #####################################################
 ### end transport/30_exim4-config_maildir_home
 #####################################################
@@ -1359,9 +1709,22 @@ procmail_pipe:
 ### transport/30_exim4-config_remote_smtp
 #################################
 # This transport is used for delivering messages over SMTP connections.
+
 remote_smtp:
   debug_print = "T: remote_smtp for $local_part@$domain"
   driver = smtp
+.ifdef REMOTE_SMTP_HOSTS_AVOID_TLS
+  hosts_avoid_tls = REMOTE_SMTP_HOSTS_AVOID_TLS
+.endif
+.ifdef REMOTE_SMTP_HEADERS_REWRITE
+  headers_rewrite = REMOTE_SMTP_HEADERS_REWRITE
+.endif
+.ifdef REMOTE_SMTP_RETURN_PATH
+  return_path = REMOTE_SMTP_RETURN_PATH
+.endif
+.ifdef REMOTE_SMTP_HELO_FROM_DNS
+  helo_data=REMOTE_SMTP_HELO_DATA
+.endif
 #####################################################
 ### end transport/30_exim4-config_remote_smtp
 #####################################################
@@ -1373,17 +1736,30 @@ remote_smtp:
 #################################
 
 # This transport is used for delivering messages over SMTP connections
-# to a smarthost. The local host tries to authenticate and does some
-# modification in headers and return-path.
+# to a smarthost. The local host tries to authenticate.
 # This transport is used for smarthost and satellite configurations.
 
 remote_smtp_smarthost:
   debug_print = "T: remote_smtp_smarthost for $local_part@$domain"
   driver = smtp
-  hosts_try_auth = ${if exists {CONFDIR/passwd.client}{DCsmarthost}{}}
-  tls_tempfail_tryclear = false
-  DEBCONFheaders_rewriteDEBCONF
-  DEBCONFreturn_pathDEBCONF
+  hosts_try_auth = <; ${if exists{CONFDIR/passwd.client} \
+        {\
+        ${lookup{$host}nwildlsearch{CONFDIR/passwd.client}{$host_address}}\
+        }\
+        {} \
+      }
+.ifdef REMOTE_SMTP_SMARTHOST_HOSTS_AVOID_TLS
+  hosts_avoid_tls = REMOTE_SMTP_SMARTHOST_HOSTS_AVOID_TLS
+.endif
+.ifdef REMOTE_SMTP_HEADERS_REWRITE
+  headers_rewrite = REMOTE_SMTP_HEADERS_REWRITE
+.endif
+.ifdef REMOTE_SMTP_RETURN_PATH
+  return_path = REMOTE_SMTP_RETURN_PATH
+.endif
+.ifdef REMOTE_SMTP_HELO_FROM_DNS
+  helo_data=REMOTE_SMTP_HELO_DATA
+.endif
 #####################################################
 ### end transport/30_exim4-config_remote_smtp_smarthost
 #####################################################
@@ -1397,8 +1773,9 @@ remote_smtp_smarthost:
 address_directory:
   debug_print = "T: address_directory for $local_part@$domain"
   driver = appendfile
-  envelope_to_add = true
-  return_path_add = true
+  delivery_date_add
+  envelope_to_add
+  return_path_add
   check_string = ""
   escape_string = ""
   maildir_format
@@ -1423,6 +1800,9 @@ begin retry
 ### retry/30_exim4-config
 #####################################################
 
+### retry/30_exim4-config
+#################################
+
 # This single retry rule applies to all domains and all errors. It specifies
 # retries every 15 minutes for 2 hours, then increasing retry intervals,
 # starting at 1 hour and increasing each time by a factor of 1.5, up to 16
@@ -1433,12 +1813,10 @@ begin retry
 # effective retry-time depends on the frequenzy of queue-running, too.
 # See QUEUEINTERVAL in /etc/default/exim4.
 
-# Domain               Error       Retries
-# ------               -----       -------
+# Address or Domain    Error       Retries
+# -----------------    -----       -------
 
 *                      *           F,2h,15m; G,16h,1h,1.5; F,4d,6h
-
-
 
 #####################################################
 ### end retry/30_exim4-config
@@ -1466,10 +1844,13 @@ begin rewrite
 # This rewriting rule is particularily useful for dialup users who
 # don't have their own domain, but could be useful for anyone.
 # It looks up the real address of all local users in a file
+.ifndef NO_EAA_REWRITE_REWRITE
 *@+local_domains "${lookup{${local_part}}lsearch{/etc/email-addresses}\
                    {$value}fail}" Ffrs
 # identical rewriting rule for /etc/mailname
-DEBCONFrewriteemailaddresses_mailnameDEBCONF
+*@ETC_MAILNAME "${lookup{${local_part}}lsearch{/etc/email-addresses}\
+                   {$value}fail}" Ffrs
+.endif
 
 
 #####################################################
@@ -1496,44 +1877,54 @@ begin authenticators
 ### auth/30_exim4-config_examples
 #################################
 
-# The examples below are for server side authentication
+# The examples below are for server side authentication, when the
+# local exim is SMTP server and clients authenticate to the local exim.
 
 # They allow two styles of plain-text authentication against an
-# CONFDIR/passwd file which has records in the following format
-#   username:crypted-password:clear-password
-# crypted-password is the crypt(3)-created hash of your password. You
-#   can, for example, use the mkpasswd program from the whois package
-#   to create a crypted password. It is recommended to use md5 hashing,
-#   with mkpasswd -H md5.
-# clear-password is only necessary if you want to offer CRAM-MD5
-#   authentication. If you don't plan on doing so, the third column can be
-#   omitted completely.
+# CONFDIR/passwd file whose syntax is described in exim4_passwd(5).
 
 # Hosts that are allowed to use AUTH are defined by the
 # auth_advertise_hosts option in the main configuration. The default is
 # "*", which allows authentication to all hosts over all kinds of
 # connections if there is at least one authenticator defined here.
 # Authenticators which rely on unencrypted clear text passwords don't
-# advertise on unencrypted connections by default. You can set
-# AUTH_SERVER_ALLOW_NOTLS_PASSWORDS to advertise unencrypted clear text
-# password based authenticators on all connections.
+# advertise on unencrypted connections by default. Thus, it might be
+# wise to set up TLS to allow encrypted connections. If TLS cannot be
+# used for some reason, you can set AUTH_SERVER_ALLOW_NOTLS_PASSWORDS to
+# advertise unencrypted clear text password based authenticators on all
+# connections. As this is severely reducing security, using TLS is
+# preferred over allowing clear text password based authenticators on
+# unencrypted connections.
+
+# PLAIN authentication has no server prompts. The client sends its
+# credentials in one lump, containing an authorization ID (which we do not
+# use), an authentication ID, and a password. The latter two appear as
+# $auth2 and $auth3 in the configuration and should be checked against a
+# valid username and password. In a real configuration you would typically
+# use $auth2 as a lookup key, and compare $auth3 against the result of the
+# lookup, perhaps using the crypteq{}{} condition.
 
 # plain_server:
 #   driver = plaintext
 #   public_name = PLAIN
-#   server_condition = "${if crypteq{$3}{${extract{1}{:}{${lookup{$2}lsearch{CONFDIR/passwd}{$value}{*:*}}}}}{1}{0}}"
-#   server_set_id = $2
+#   server_condition = "${if crypteq{$auth3}{${extract{1}{:}{${lookup{$auth2}lsearch{CONFDIR/passwd}{$value}{*:*}}}}}{1}{0}}"
+#   server_set_id = $auth2
 #   server_prompts = :
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
-#
+
+# LOGIN authentication has traditional prompts and responses. There is no
+# authorization ID in this mechanism, so unlike PLAIN the username and
+# password are $auth1 and $auth2. Apart from that you can use the same
+# server_condition setting for both authenticators.
+
 # login_server:
 #   driver = plaintext
 #   public_name = LOGIN
 #   server_prompts = "Username:: : Password::"
-#   server_condition = "${if crypteq{$2}{${extract{1}{:}{${lookup{$1}lsearch{CONFDIR/passwd}{$value}{*:*}}}}}{1}{0}}"
-#   server_set_id = $1
+#   server_condition = "${if crypteq{$auth2}{${extract{1}{:}{${lookup{$auth1}lsearch{CONFDIR/passwd}{$value}{*:*}}}}}{1}{0}}"
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -1541,24 +1932,24 @@ begin authenticators
 # cram_md5_server:
 #   driver = cram_md5
 #   public_name = CRAM-MD5
-#   server_secret = ${extract{2}{:}{${lookup{$1}lsearch{CONFDIR/passwd}{$value}fail}}}
-#   server_set_id = $1
+#   server_secret = ${extract{2}{:}{${lookup{$auth1}lsearch{CONFDIR/passwd}{$value}fail}}}
+#   server_set_id = $auth1
 
 # Here is an example of CRAM-MD5 authentication against PostgreSQL:
 #
 # psqldb_auth_server:
 #   driver = cram_md5
 #   public_name = CRAM-MD5
-#   server_secret = ${lookup pgsql{SELECT pw FROM users WHERE username = '${quote_pgsql:$1}'}{$value}fail}
-#   server_set_id = $1
+#   server_secret = ${lookup pgsql{SELECT pw FROM users WHERE username = '${quote_pgsql:$auth1}'}{$value}fail}
+#   server_set_id = $auth1
 
 # Authenticate against local passwords using sasl2-bin
 # Requires exim_uid to be a member of sasl group, see README.Debian.gz
 # plain_saslauthd_server:
 #   driver = plaintext
 #   public_name = PLAIN
-#   server_condition = ${if saslauthd{{$2}{$3}}{1}{0}}
-#   server_set_id = $2
+#   server_condition = ${if saslauthd{{$auth2}{$auth3}}{1}{0}}
+#   server_set_id = $auth2
 #   server_prompts = :
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
@@ -1569,8 +1960,8 @@ begin authenticators
 #   public_name = LOGIN
 #   server_prompts = "Username:: : Password::"
 #   # don't send system passwords over unencrypted connections
-#   server_condition = ${if saslauthd{{$1}{$2}}{1}{0}}
-#   server_set_id = $1
+#   server_condition = ${if saslauthd{{$auth1}{$auth2}}{1}{0}}
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -1579,7 +1970,7 @@ begin authenticators
 #   driver = cyrus_sasl
 #   public_name = NTLM
 #   server_realm = <short main hostname>
-#   server_set_id = $1
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -1588,26 +1979,25 @@ begin authenticators
 #   driver = cyrus_sasl
 #   public_name = DIGEST-MD5
 #   server_realm = <short main hostname>
-#   server_set_id = $1
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
 
 # Authentcate against cyrus-sasl
 # This is mainly untested, please report any problems to
-# pkg-exim4-users@lists.alioth.debian.org. If you have success with
-# using these authenticators until May 1 2005, please report as well.
+# pkg-exim4-users@lists.alioth.debian.org.
 # cram_md5_sasl_server:
 #   driver = cyrus_sasl
 #   public_name = CRAM-MD5
 #   server_realm = <short main hostname>
-#   server_set_id = $1
+#   server_set_id = $auth1
 #
 # plain_sasl_server:
 #   driver = cyrus_sasl
 #   public_name = PLAIN
 #   server_realm = <short main hostname>
-#   server_set_id = $1
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -1616,7 +2006,7 @@ begin authenticators
 #   driver = cyrus_sasl
 #   public_name = LOGIN
 #   server_realm = <short main hostname>
-#   server_set_id = $1
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -1632,10 +2022,10 @@ begin authenticators
 #   server_condition = \
 #     ${extract {ADDRESS} \
 #               {${readsocket{/var/run/courier/authdaemon/socket} \
-#               {AUTH ${strlen:exim\nlogin\n$2\n$3\n}\nexim\nlogin\n$2\n$3\n} }} \
+#               {AUTH ${strlen:exim\nlogin\n$auth2\n$auth3\n}\nexim\nlogin\n$auth2\n$auth3\n} }} \
 #               {yes} \
 #               fail}
-#   server_set_id = $2
+#   server_set_id = $auth2
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -1647,10 +2037,10 @@ begin authenticators
 #   server_condition = \
 #     ${extract {ADDRESS} \
 #               {${readsocket{/var/run/courier/authdaemon/socket} \
-#               {AUTH ${strlen:exim\nlogin\n$1\n$2\n}\nexim\nlogin\n$1\n$2\n} }} \
+#               {AUTH ${strlen:exim\nlogin\n$auth1\n$auth2\n}\nexim\nlogin\n$auth1\n$auth2\n} }} \
 #               {yes} \
 #               fail}
-#   server_set_id = $1
+#   server_set_id = $auth1
 #   .ifndef AUTH_SERVER_ALLOW_NOTLS_PASSWORDS
 #   server_advertise_condition = ${if eq{$tls_cipher}{}{}{*}}
 #   .endif
@@ -1681,15 +2071,8 @@ begin authenticators
 ##############
 
 # These examples below are the equivalent for client side authentication.
-# They get the passwords from CONFDIR/passwd.client. This file should have
-# three columns separated by colons, the first contains the name of the
-# mailserver to authenticate against, the second the username and the third
-# contains the password.
-
-### # example for CONFDIR/passwd.client
-### mail.server:blah:secret
-### # default entry:
-### *:bar:foo
+# They get the passwords from CONFDIR/passwd.client, whose format is
+# defined in exim4_passwd_client(5)
 
 # Because AUTH PLAIN and AUTH LOGIN send the password in clear, we
 # only allow these mechanisms over encrypted connections by default.
@@ -1699,21 +2082,28 @@ begin authenticators
 cram_md5:
   driver = cram_md5
   public_name = CRAM-MD5
-  client_name = ${extract{1}{:}{${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}
-  client_secret = ${extract{2}{:}{${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}
+  client_name = ${extract{1}{:}{${lookup{$host}nwildlsearch{CONFDIR/passwd.client}{$value}fail}}}
+  client_secret = ${extract{2}{:}{${lookup{$host}nwildlsearch{CONFDIR/passwd.client}{$value}fail}}}
+
+# this returns the matching line from passwd.client and doubles all ^
+PASSWDLINE=${sg{\
+                ${lookup{$host}nwildlsearch{CONFDIR/passwd.client}{$value}fail}\
+	        }\
+	        {\\N[\\^]\\N}\
+	        {^^}\
+	    }
 
 plain:
   driver = plaintext
   public_name = PLAIN
 .ifndef AUTH_CLIENT_ALLOW_NOTLS_PASSWORDS
-  client_send = "${if !eq{$tls_cipher}{}{\
-                     ^${extract{1}{::}\
-		       {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}\
-		     ^${extract{2}{::}\
-		       {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}\
+  client_send = "<; ${if !eq{$tls_cipher}{}\
+                    {^${extract{1}{:}{PASSWDLINE}}\
+		     ^${sg{PASSWDLINE}{\\N([^:]+:)(.*)\\N}{\\$2}}\
 		   }fail}"
 .else
-  client_send = "^${extract{1}{::}{${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}^${extract{2}{::}{${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}"
+  client_send = "<; ^${extract{1}{:}{PASSWDLINE}}\
+		    ^${sg{PASSWDLINE}{\\N([^:]+:)(.*)\\N}{\\$2}}"
 .endif
 
 login:
@@ -1722,31 +2112,20 @@ login:
 .ifndef AUTH_CLIENT_ALLOW_NOTLS_PASSWORDS
   # Return empty string if not non-TLS AND looking up $host in passwd-file
   # yields a non-empty string; fail otherwise.
-  client_send = "${if and{\
+  client_send = "<; ${if and{\
                           {!eq{$tls_cipher}{}}\
-                          {!eq\
-                              {${lookup{$host}lsearch*{CONFDIR/passwd.client}\
-                                 {$value}fail}}\
-                              {}}\
+                          {!eq{PASSWDLINE}{}}\
                          }\
                       {}fail}\
-                 : ${extract{1}{::}\
-		        {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}} \
-		 : ${extract{2}{::}\
-		     {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}"
+                 ; ${extract{1}{::}{PASSWDLINE}}\
+		 ; ${sg{PASSWDLINE}{\\N([^:]+:)(.*)\\N}{\\$2}}"
 .else
   # Return empty string if looking up $host in passwd-file yields a
   # non-empty string; fail otherwise.
-  client_send = "${if !eq\
-                          {${lookup\
-                            {$host}lsearch*{CONFDIR/passwd.client}\
-                            {$value}fail}}\
-                          {}\
+  client_send = "<; ${if !eq{PASSWDLINE}{}\
                       {}fail}\
-                 : ${extract{1}{::}\
-                        {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}} \
-                 : ${extract{2}{::}\
-                        {${lookup{$host}lsearch*{CONFDIR/passwd.client}{$value}fail}}}"
+                 ; ${extract{1}{::}{PASSWDLINE}}\
+		 ; ${sg{PASSWDLINE}{\\N([^:]+:)(.*)\\N}{\\$2}}"
 .endif
 #####################################################
 ### end auth/30_exim4-config_examples

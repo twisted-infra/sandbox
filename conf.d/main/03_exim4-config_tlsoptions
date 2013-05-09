@@ -2,9 +2,8 @@
 ### main/03_exim4-config_tlsoptions
 #################################
 
-# TLS/SSL configuration.
+# TLS/SSL configuration for exim as an SMTP server.
 # See /usr/share/doc/exim4-base/README.Debian.gz for explanations.
-
 
 .ifdef MAIN_TLS_ENABLE
 # Defines what hosts to 'advertise' STARTTLS functionality to. The
